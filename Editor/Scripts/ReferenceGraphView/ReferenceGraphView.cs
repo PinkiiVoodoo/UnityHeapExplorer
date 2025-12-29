@@ -172,11 +172,8 @@ namespace HeapExplorer
                     
                     if (nodeRect.Contains(e.mousePosition))
                     {
-                        if (e.clickCount == 2)
-                        {
-                            ExpandNode(node);
-                            e.Use();
-                        }
+                        ExpandNode(node);
+                        e.Use();
                         break;
                     }
                 }
@@ -259,7 +256,7 @@ namespace HeapExplorer
             style.fontSize = 10;
             
             Rect instructionRect = new Rect(rect.x + 5, rect.y + 5, 250, 40);
-            GUI.Label(instructionRect, "Double-click: Expand node\nMiddle-click drag: Pan\nScroll: Zoom", style);
+            GUI.Label(instructionRect, "Click: Expand node\nMiddle-click drag: Pan\nScroll: Zoom", style);
         }
 
         void ExpandNode(GraphNodeData node)

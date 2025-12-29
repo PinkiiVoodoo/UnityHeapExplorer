@@ -8,7 +8,7 @@ The Reference Graph window is a new visualization tool in HeapExplorer that help
 
 ### Visual Graph Navigation
 - **Interactive Nodes**: Each node represents a memory object (managed or native)
-- **Expandable References**: Double-click any node to see all objects that reference it
+- **Expandable References**: Click any node to see all objects that reference it
 - **Pan and Zoom**: Navigate large graphs easily with mouse controls
 - **Clear Visual Distinction**: Different colors for managed (C#) and native (C++) objects
 
@@ -26,7 +26,7 @@ The Reference Graph window is a new visualization tool in HeapExplorer that help
 
 ### Exploring Objects
 1. **Show an Object**: Click "Show Random Managed Object" or "Show Random Native Object" to display an initial object
-2. **Expand References**: Double-click on any node to see which objects reference it
+2. **Expand References**: Click on any node to see which objects reference it
 3. **Navigate**: 
    - Middle-click and drag to pan the view
    - Scroll wheel to zoom in/out
