@@ -49,7 +49,7 @@ namespace HeapExplorer
             using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
             {
                 EditorGUILayout.LabelField("Reference Graph", EditorStyles.boldLabel);
-                EditorGUILayout.LabelField("Click the [+] button on a node to expand. Drag nodes to reposition them.", EditorStyles.wordWrappedLabel);
+                EditorGUILayout.LabelField("Click [+] to expand one level, [R] to expand to root. Drag nodes to reposition.", EditorStyles.wordWrappedLabel);
                 EditorGUILayout.Space(4);
 
                 using (new EditorGUILayout.HorizontalScope())

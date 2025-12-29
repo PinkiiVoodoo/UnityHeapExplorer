@@ -172,9 +172,18 @@ namespace HeapExplorer
                     
                     if (nodeRect.Contains(mouseInGraphSpace))
                     {
-                        // Check if clicking the expand button
+                        // Check if clicking the expand to root button
                         if (!node.isExpanded)
                         {
+                            Rect expandToRootButtonRect = new Rect(nodeRect.x + nodeRect.width - 38, nodeRect.y + 5, 15, 15);
+                            if (expandToRootButtonRect.Contains(mouseInGraphSpace))
+                            {
+                                ExpandToRoot(node);
+                                e.Use();
+                                break;
+                            }
+                            
+                            // Check if clicking the expand button
                             Rect expandButtonRect = new Rect(nodeRect.x + nodeRect.width - 20, nodeRect.y + 5, 15, 15);
                             if (expandButtonRect.Contains(mouseInGraphSpace))
                             {
@@ -256,9 +265,28 @@ namespace HeapExplorer
             Rect subtitleRect = new Rect(nodeRect.x + 5, nodeRect.y + 25, nodeRect.width - 10, nodeRect.height - 35);
             GUI.Label(subtitleRect, node.subtitle, subtitleStyle);
             
-            // Draw expand button if not expanded
+            // Draw expand buttons if not expanded
             if (!node.isExpanded)
             {
+                // Draw expand to root button (left button with "R")
+                Rect expandToRootButtonRect = new Rect(nodeRect.x + nodeRect.width - 38, nodeRect.y + 5, 15, 15);
+                
+                // Draw button background
+                EditorGUI.DrawRect(expandToRootButtonRect, new Color(0.2f, 0.2f, 0.2f, 0.8f));
+                
+                // Draw button border
+                Rect rootButtonBorder = new Rect(expandToRootButtonRect.x - 1, expandToRootButtonRect.y - 1, expandToRootButtonRect.width + 2, expandToRootButtonRect.height + 2);
+                EditorGUI.DrawRect(rootButtonBorder, new Color(0.8f, 0.6f, 0.2f)); // Orange border for distinction
+                EditorGUI.DrawRect(expandToRootButtonRect, new Color(0.2f, 0.2f, 0.2f, 0.8f));
+                
+                // Draw R symbol
+                GUIStyle rootButtonStyle = new GUIStyle(EditorStyles.boldLabel);
+                rootButtonStyle.normal.textColor = new Color(1.0f, 0.8f, 0.3f); // Orange text
+                rootButtonStyle.fontSize = 10;
+                rootButtonStyle.alignment = TextAnchor.MiddleCenter;
+                GUI.Label(expandToRootButtonRect, "R", rootButtonStyle);
+                
+                // Draw expand one level button (right button with "+")
                 Rect expandButtonRect = new Rect(nodeRect.x + nodeRect.width - 20, nodeRect.y + 5, 15, 15);
                 
                 // Draw button background
@@ -313,8 +341,8 @@ namespace HeapExplorer
             style.normal.textColor = Color.white;
             style.fontSize = 10;
             
-            Rect instructionRect = new Rect(rect.x + 5, rect.y + 5, 300, 60);
-            GUI.Label(instructionRect, "Click [+] button: Expand node\nDrag: Move node\nMiddle-click drag: Pan view\nScroll: Zoom", style);
+            Rect instructionRect = new Rect(rect.x + 5, rect.y + 5, 350, 75);
+            GUI.Label(instructionRect, "Click [+]: Expand one level\nClick [R]: Expand to root\nDrag: Move node\nMiddle-click drag: Pan view\nScroll: Zoom", style);
         }
 
         void ExpandNode(GraphNodeData node)
@@ -381,6 +409,138 @@ namespace HeapExplorer
                     node.childNodes.Add(childNode.id);
                 }
             }
+        }
+
+        void ExpandToRoot(GraphNodeData startNode)
+        {
+            // Expand the starting node and continue expanding until we reach a root
+            var currentNodes = new List<GraphNodeData> { startNode };
+            var processedNodes = new HashSet<int>();
+            int iterationCount = 0;
+            const int MAX_ITERATIONS = 20; // Safety limit to prevent infinite loops
+            
+            while (currentNodes.Count > 0 && iterationCount < MAX_ITERATIONS)
+            {
+                var nextNodes = new List<GraphNodeData>();
+                
+                foreach (var node in currentNodes)
+                {
+                    if (processedNodes.Contains(node.id))
+                        continue;
+                    
+                    processedNodes.Add(node.id);
+                    
+                    // Check if this node is a root
+                    if (IsNodeRoot(node))
+                    {
+                        // This is a root, mark it but don't expand further
+                        continue;
+                    }
+                    
+                    // Expand this node
+                    if (!node.isExpanded)
+                    {
+                        ExpandNode(node);
+                        
+                        // Add the child nodes to the next iteration
+                        foreach (var childId in node.childNodes)
+                        {
+                            if (m_Nodes.TryGetValue(childId, out GraphNodeData childNode))
+                            {
+                                nextNodes.Add(childNode);
+                            }
+                        }
+                    }
+                }
+                
+                currentNodes = nextNodes;
+                iterationCount++;
+            }
+        }
+
+        bool IsNodeRoot(GraphNodeData node)
+        {
+            // Check if this node is a root based on connection type
+            // Static fields are roots
+            foreach (var conn in m_Snapshot.connections)
+            {
+                if (node.isManaged)
+                {
+                    if (conn.toKind == PackedConnection.Kind.Managed && 
+                        conn.to == node.objectIndex && 
+                        conn.fromKind == PackedConnection.Kind.StaticField)
+                    {
+                        return true;
+                    }
+                }
+                else
+                {
+                    if (conn.toKind == PackedConnection.Kind.Native && conn.to == node.objectIndex)
+                    {
+                        // Check if referenced by a static field
+                        if (conn.fromKind == PackedConnection.Kind.StaticField)
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+            
+            // For native objects, check additional root conditions
+            if (!node.isManaged && node.objectIndex >= 0 && node.objectIndex < m_Snapshot.nativeObjects.Length)
+            {
+                var nativeObj = m_Snapshot.nativeObjects[node.objectIndex];
+                
+                // Check if it's a manager
+                if (nativeObj.isManager)
+                    return true;
+                
+                // Check if it's marked as DontDestroyOnLoad
+                if (nativeObj.isDontDestroyOnLoad)
+                    return true;
+                
+                // Check if it has DontUnloadUnusedAsset flag
+                if ((nativeObj.hideFlags & HideFlags.DontUnloadUnusedAsset) != 0)
+                    return true;
+                
+                // Check if it's a GameObject or Component (these are scene roots)
+                var nativeType = m_Snapshot.nativeTypes[nativeObj.nativeTypesArrayIndex];
+                if (m_Snapshot.coreTypes.nativeGameObject >= 0 && 
+                    nativeType.IsSubclassOf(m_Snapshot.coreTypes.nativeGameObject))
+                    return true;
+                
+                if (m_Snapshot.coreTypes.nativeComponent >= 0 && 
+                    nativeType.IsSubclassOf(m_Snapshot.coreTypes.nativeComponent))
+                    return true;
+            }
+            
+            // Check if there are no references to this object (it's a root by isolation)
+            bool hasIncomingReferences = false;
+            foreach (var conn in m_Snapshot.connections)
+            {
+                if (node.isManaged)
+                {
+                    if (conn.toKind == PackedConnection.Kind.Managed && conn.to == node.objectIndex)
+                    {
+                        hasIncomingReferences = true;
+                        break;
+                    }
+                }
+                else
+                {
+                    if (conn.toKind == PackedConnection.Kind.Native && conn.to == node.objectIndex)
+                    {
+                        hasIncomingReferences = true;
+                        break;
+                    }
+                }
+            }
+            
+            // If no incoming references, it's a root
+            if (!hasIncomingReferences)
+                return true;
+            
+            return false;
         }
     }
 }
