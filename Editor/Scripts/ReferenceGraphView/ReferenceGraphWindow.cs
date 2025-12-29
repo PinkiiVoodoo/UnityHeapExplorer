@@ -197,7 +197,7 @@ namespace HeapExplorer
         public override int CanProcessCommand(GotoCommand command)
         {
             // We can handle managed and native objects
-            if (command.managedObject.HasValue || command.nativeObject.HasValue)
+            if (command.toManagedObject.isValid || command.toNativeObject.isValid)
                 return 100;
 
             return 0;
@@ -205,13 +205,13 @@ namespace HeapExplorer
 
         public override void RestoreCommand(GotoCommand command)
         {
-            if (command.managedObject.HasValue)
+            if (command.toManagedObject.isValid)
             {
-                ShowObject(command.managedObject.Value);
+                ShowObject(command.toManagedObject.packed);
             }
-            else if (command.nativeObject.HasValue)
+            else if (command.toNativeObject.isValid)
             {
-                ShowObject(command.nativeObject.Value);
+                ShowObject(command.toNativeObject.packed);
             }
         }
 
