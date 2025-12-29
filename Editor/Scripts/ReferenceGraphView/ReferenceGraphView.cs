@@ -48,6 +48,8 @@ namespace HeapExplorer
         float m_Zoom = 1.0f;
         bool m_IsPanning = false;
         Vector2 m_PanStart;
+        GraphNodeData m_DraggingNode = null;
+        Vector2 m_DragOffset;
 
         public ReferenceGraphViewIMGUI(PackedMemorySnapshot snapshot)
         {
@@ -158,7 +160,7 @@ namespace HeapExplorer
                 e.Use();
             }
             
-            // Handle node clicks
+            // Handle node dragging with left mouse button
             if (e.type == EventType.MouseDown && e.button == 0)
             {
                 foreach (var node in m_Nodes.Values)
@@ -172,10 +174,37 @@ namespace HeapExplorer
                     
                     if (nodeRect.Contains(e.mousePosition))
                     {
-                        ExpandNode(node);
+                        m_DraggingNode = node;
+                        m_DragOffset = e.mousePosition - new Vector2(node.position.x * m_Zoom, node.position.y * m_Zoom);
                         e.Use();
                         break;
                     }
+                }
+            }
+            else if (e.type == EventType.MouseDrag && e.button == 0 && m_DraggingNode != null)
+            {
+                // Update node position during drag
+                Vector2 newPosition = (e.mousePosition - m_DragOffset) / m_Zoom;
+                m_DraggingNode.position = newPosition;
+                m_DraggingNode.rect = new Rect(newPosition, m_DraggingNode.rect.size);
+                e.Use();
+            }
+            else if (e.type == EventType.MouseUp && e.button == 0)
+            {
+                // Check if it was a click (not a drag) for expansion
+                if (m_DraggingNode != null)
+                {
+                    // If the mouse hasn't moved much, treat it as a click to expand
+                    Vector2 currentNodeScreenPos = new Vector2(m_DraggingNode.position.x * m_Zoom, m_DraggingNode.position.y * m_Zoom);
+                    float dragDistance = Vector2.Distance(e.mousePosition - m_DragOffset, currentNodeScreenPos);
+                    
+                    if (dragDistance < 5f) // Threshold for click vs drag
+                    {
+                        ExpandNode(m_DraggingNode);
+                    }
+                    
+                    m_DraggingNode = null;
+                    e.Use();
                 }
             }
         }
@@ -255,8 +284,8 @@ namespace HeapExplorer
             style.normal.textColor = Color.white;
             style.fontSize = 10;
             
-            Rect instructionRect = new Rect(rect.x + 5, rect.y + 5, 250, 40);
-            GUI.Label(instructionRect, "Click: Expand node\nMiddle-click drag: Pan\nScroll: Zoom", style);
+            Rect instructionRect = new Rect(rect.x + 5, rect.y + 5, 280, 60);
+            GUI.Label(instructionRect, "Click: Expand node\nDrag: Move node\nMiddle-click drag: Pan view\nScroll: Zoom", style);
         }
 
         void ExpandNode(GraphNodeData node)

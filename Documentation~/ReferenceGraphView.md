@@ -27,10 +27,12 @@ The Reference Graph window is a new visualization tool in HeapExplorer that help
 ### Exploring Objects
 1. **Show an Object**: Click "Show Random Managed Object" or "Show Random Native Object" to display an initial object
 2. **Expand References**: Click on any node to see which objects reference it
-3. **Navigate**: 
-   - Middle-click and drag to pan the view
+3. **Arrange Nodes**: Drag individual nodes to reposition them
+4. **Navigate**: 
+   - Drag nodes to move them
+   - Middle-click and drag to pan the entire view
    - Scroll wheel to zoom in/out
-4. **Reset**: Click "Clear Graph" to start over
+5. **Reset**: Click "Clear Graph" to start over
 
 ### Understanding the Display
 
@@ -75,7 +77,8 @@ Each node displays:
 2. **Limit Expansions**: The tool limits to 10 child nodes per expansion to keep the graph readable
 3. **Use with Other Views**: Combine with "Paths to Root" view for comprehensive leak analysis
 4. **Clear Regularly**: Use "Clear Graph" when switching focus to different objects
-5. **Pan Don't Scroll**: Use middle-click to pan instead of scrollbars for better control
+5. **Organize Nodes**: Drag nodes to arrange them in a layout that makes sense for your analysis
+6. **Pan vs Drag**: Middle-click to pan the entire view, left-click-drag to move individual nodes
 
 ## Technical Notes
 
