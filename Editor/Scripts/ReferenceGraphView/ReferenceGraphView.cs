@@ -164,12 +164,11 @@ namespace HeapExplorer
             if (e.type == EventType.MouseDown && e.button == 0)
             {
                 // Transform mouse position to account for zoom pivot
-                Vector2 pivot = rect.size * 0.5f;
-                Vector2 mouseInGraphSpace = TransformMouseToGraphSpace(e.mousePosition, pivot, m_Zoom);
+                Vector2 mouseInGraphSpace = TransformMouseToGraphSpace(e.mousePosition, rect, m_Zoom);
                 
                 foreach (var node in m_Nodes.Values)
                 {
-                    Rect nodeRect = new Rect(node.position, node.rect.size);
+                    Rect nodeRect = node.rect;
                     
                     if (nodeRect.Contains(mouseInGraphSpace))
                     {
@@ -196,8 +195,7 @@ namespace HeapExplorer
             else if (e.type == EventType.MouseDrag && e.button == 0 && m_DraggingNode != null)
             {
                 // Transform mouse position to account for zoom pivot
-                Vector2 pivot = rect.size * 0.5f;
-                Vector2 mouseInGraphSpace = TransformMouseToGraphSpace(e.mousePosition, pivot, m_Zoom);
+                Vector2 mouseInGraphSpace = TransformMouseToGraphSpace(e.mousePosition, rect, m_Zoom);
                 
                 // Update node position during drag
                 Vector2 newPosition = mouseInGraphSpace - m_DragOffset;
@@ -216,9 +214,11 @@ namespace HeapExplorer
         }
 
         // Transform mouse position from screen space to graph space, accounting for zoom pivot
-        Vector2 TransformMouseToGraphSpace(Vector2 mousePos, Vector2 pivot, float zoom)
+        Vector2 TransformMouseToGraphSpace(Vector2 mousePos, Rect rect, float zoom)
         {
             // Inverse transform: translate to pivot, scale, translate back
+            mousePos -= rect.position;
+            Vector2 pivot = rect.size * 0.5f;
             Vector2 relativeToCenter = mousePos - pivot;
             Vector2 scaledRelative = relativeToCenter / zoom;
             return scaledRelative + pivot;
