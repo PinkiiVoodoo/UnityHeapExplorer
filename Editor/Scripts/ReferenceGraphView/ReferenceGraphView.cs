@@ -163,19 +163,18 @@ namespace HeapExplorer
             // Handle node dragging with left mouse button
             if (e.type == EventType.MouseDown && e.button == 0)
             {
+                // Transform mouse position to account for zoom pivot
+                Vector2 pivot = rect.size * 0.5f;
+                Vector2 mouseInGraphSpace = TransformMouseToGraphSpace(e.mousePosition, pivot, m_Zoom);
+                
                 foreach (var node in m_Nodes.Values)
                 {
-                    Rect nodeRect = new Rect(
-                        node.position.x * m_Zoom,
-                        node.position.y * m_Zoom,
-                        node.rect.width * m_Zoom,
-                        node.rect.height * m_Zoom
-                    );
+                    Rect nodeRect = new Rect(node.position, node.rect.size);
                     
-                    if (nodeRect.Contains(e.mousePosition))
+                    if (nodeRect.Contains(mouseInGraphSpace))
                     {
                         m_DraggingNode = node;
-                        m_DragOffset = e.mousePosition - new Vector2(node.position.x * m_Zoom, node.position.y * m_Zoom);
+                        m_DragOffset = mouseInGraphSpace - node.position;
                         e.Use();
                         break;
                     }
@@ -183,8 +182,12 @@ namespace HeapExplorer
             }
             else if (e.type == EventType.MouseDrag && e.button == 0 && m_DraggingNode != null)
             {
+                // Transform mouse position to account for zoom pivot
+                Vector2 pivot = rect.size * 0.5f;
+                Vector2 mouseInGraphSpace = TransformMouseToGraphSpace(e.mousePosition, pivot, m_Zoom);
+                
                 // Update node position during drag
-                Vector2 newPosition = (e.mousePosition - m_DragOffset) / m_Zoom;
+                Vector2 newPosition = mouseInGraphSpace - m_DragOffset;
                 m_DraggingNode.position = newPosition;
                 m_DraggingNode.rect = new Rect(newPosition, m_DraggingNode.rect.size);
                 e.Use();
@@ -194,11 +197,14 @@ namespace HeapExplorer
                 // Check if it was a click (not a drag) for expansion
                 if (m_DraggingNode != null)
                 {
-                    // If the mouse hasn't moved much, treat it as a click to expand
-                    Vector2 currentNodeScreenPos = new Vector2(m_DraggingNode.position.x * m_Zoom, m_DraggingNode.position.y * m_Zoom);
-                    float dragDistance = Vector2.Distance(e.mousePosition - m_DragOffset, currentNodeScreenPos);
+                    // Transform mouse position to account for zoom pivot
+                    Vector2 pivot = rect.size * 0.5f;
+                    Vector2 mouseInGraphSpace = TransformMouseToGraphSpace(e.mousePosition, pivot, m_Zoom);
                     
-                    if (dragDistance < 5f) // Threshold for click vs drag
+                    // If the mouse hasn't moved much, treat it as a click to expand
+                    float dragDistance = Vector2.Distance(mouseInGraphSpace, m_DraggingNode.position + m_DragOffset);
+                    
+                    if (dragDistance < 5f / m_Zoom) // Threshold for click vs drag (scaled by zoom)
                     {
                         ExpandNode(m_DraggingNode);
                     }
@@ -207,6 +213,15 @@ namespace HeapExplorer
                     e.Use();
                 }
             }
+        }
+
+        // Transform mouse position from screen space to graph space, accounting for zoom pivot
+        Vector2 TransformMouseToGraphSpace(Vector2 mousePos, Vector2 pivot, float zoom)
+        {
+            // Inverse transform: translate to pivot, scale, translate back
+            Vector2 relativeToCenter = mousePos - pivot;
+            Vector2 scaledRelative = relativeToCenter / zoom;
+            return scaledRelative + pivot;
         }
 
         void DrawNode(GraphNodeData node, Rect containerRect)
