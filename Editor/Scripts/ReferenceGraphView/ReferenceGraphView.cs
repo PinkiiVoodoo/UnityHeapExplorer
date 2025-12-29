@@ -173,6 +173,19 @@ namespace HeapExplorer
                     
                     if (nodeRect.Contains(mouseInGraphSpace))
                     {
+                        // Check if clicking the expand button
+                        if (!node.isExpanded)
+                        {
+                            Rect expandButtonRect = new Rect(nodeRect.x + nodeRect.width - 20, nodeRect.y + 5, 15, 15);
+                            if (expandButtonRect.Contains(mouseInGraphSpace))
+                            {
+                                ExpandNode(node);
+                                e.Use();
+                                break;
+                            }
+                        }
+                        
+                        // Start dragging the node
                         m_DraggingNode = node;
                         m_DragOffset = mouseInGraphSpace - node.position;
                         e.Use();
@@ -194,21 +207,8 @@ namespace HeapExplorer
             }
             else if (e.type == EventType.MouseUp && e.button == 0)
             {
-                // Check if it was a click (not a drag) for expansion
                 if (m_DraggingNode != null)
                 {
-                    // Transform mouse position to account for zoom pivot
-                    Vector2 pivot = rect.size * 0.5f;
-                    Vector2 mouseInGraphSpace = TransformMouseToGraphSpace(e.mousePosition, pivot, m_Zoom);
-                    
-                    // If the mouse hasn't moved much, treat it as a click to expand
-                    float dragDistance = Vector2.Distance(mouseInGraphSpace, m_DraggingNode.position + m_DragOffset);
-                    
-                    if (dragDistance < 5f / m_Zoom) // Threshold for click vs drag (scaled by zoom)
-                    {
-                        ExpandNode(m_DraggingNode);
-                    }
-                    
                     m_DraggingNode = null;
                     e.Use();
                 }
@@ -253,14 +253,28 @@ namespace HeapExplorer
             subtitleStyle.fontSize = 9;
             subtitleStyle.wordWrap = true;
             
-            Rect subtitleRect = new Rect(nodeRect.x + 5, nodeRect.y + 25, nodeRect.width - 10, nodeRect.height - 30);
+            Rect subtitleRect = new Rect(nodeRect.x + 5, nodeRect.y + 25, nodeRect.width - 10, nodeRect.height - 35);
             GUI.Label(subtitleRect, node.subtitle, subtitleStyle);
             
-            // Draw expansion indicator
+            // Draw expand button if not expanded
             if (!node.isExpanded)
             {
-                Rect expandRect = new Rect(nodeRect.x + nodeRect.width - 20, nodeRect.y + 5, 15, 15);
-                GUI.Label(expandRect, "+", new GUIStyle(EditorStyles.boldLabel) { normal = { textColor = Color.white }, fontSize = 14 });
+                Rect expandButtonRect = new Rect(nodeRect.x + nodeRect.width - 20, nodeRect.y + 5, 15, 15);
+                
+                // Draw button background
+                EditorGUI.DrawRect(expandButtonRect, new Color(0.2f, 0.2f, 0.2f, 0.8f));
+                
+                // Draw button border
+                Rect buttonBorder = new Rect(expandButtonRect.x - 1, expandButtonRect.y - 1, expandButtonRect.width + 2, expandButtonRect.height + 2);
+                EditorGUI.DrawRect(buttonBorder, Color.white);
+                EditorGUI.DrawRect(expandButtonRect, new Color(0.2f, 0.2f, 0.2f, 0.8f));
+                
+                // Draw + symbol
+                GUIStyle buttonStyle = new GUIStyle(EditorStyles.boldLabel);
+                buttonStyle.normal.textColor = Color.white;
+                buttonStyle.fontSize = 12;
+                buttonStyle.alignment = TextAnchor.MiddleCenter;
+                GUI.Label(expandButtonRect, "+", buttonStyle);
             }
         }
 
@@ -299,8 +313,8 @@ namespace HeapExplorer
             style.normal.textColor = Color.white;
             style.fontSize = 10;
             
-            Rect instructionRect = new Rect(rect.x + 5, rect.y + 5, 280, 60);
-            GUI.Label(instructionRect, "Click: Expand node\nDrag: Move node\nMiddle-click drag: Pan view\nScroll: Zoom", style);
+            Rect instructionRect = new Rect(rect.x + 5, rect.y + 5, 300, 60);
+            GUI.Label(instructionRect, "Click [+] button: Expand node\nDrag: Move node\nMiddle-click drag: Pan view\nScroll: Zoom", style);
         }
 
         void ExpandNode(GraphNodeData node)
