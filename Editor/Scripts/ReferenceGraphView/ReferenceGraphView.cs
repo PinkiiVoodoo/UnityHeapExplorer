@@ -37,6 +37,9 @@ namespace HeapExplorer
 
     public class ReferenceGraphViewIMGUI
     {
+        const int MAX_CHILD_NODES = 10; // Maximum number of child nodes to display per expansion
+        const float NODE_VERTICAL_SPACING = 120f; // Vertical spacing between child nodes
+
         PackedMemorySnapshot m_Snapshot;
         Dictionary<int, GraphNodeData> m_Nodes = new Dictionary<int, GraphNodeData>();
         int m_NextNodeId = 0;
@@ -291,14 +294,13 @@ namespace HeapExplorer
             }
             
             // Create child nodes
-            int count = Mathf.Min(referencedBy.Count, 10); // Limit to 10 children
-            float yOffset = 120f;
-            float startY = node.position.y - (count - 1) * yOffset / 2f;
+            int count = Mathf.Min(referencedBy.Count, MAX_CHILD_NODES);
+            float startY = node.position.y - (count - 1) * NODE_VERTICAL_SPACING / 2f;
             
             for (int i = 0; i < count; i++)
             {
                 var conn = referencedBy[i];
-                Vector2 childPosition = new Vector2(node.position.x - 250, startY + i * yOffset);
+                Vector2 childPosition = new Vector2(node.position.x - 250, startY + i * NODE_VERTICAL_SPACING);
                 
                 GraphNodeData childNode = null;
                 

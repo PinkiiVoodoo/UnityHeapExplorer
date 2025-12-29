@@ -99,7 +99,7 @@ namespace HeapExplorer
                 }
                 else
                 {
-                    // Show first managed object by default
+                    // Show first valid managed object by default
                     ShowRandomManagedObject();
                 }
             }
