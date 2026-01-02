@@ -584,15 +584,15 @@ namespace HeapExplorer
                 if ((nativeObj.hideFlags & HideFlags.DontUnloadUnusedAsset) != 0)
                     return true;
                 
-                // Check if it's a GameObject or Component (these are scene roots)
-                var nativeType = m_Snapshot.nativeTypes[nativeObj.nativeTypesArrayIndex];
-                if (m_Snapshot.coreTypes.nativeGameObject >= 0 && 
-                    nativeType.IsSubclassOf(m_Snapshot.coreTypes.nativeGameObject))
-                    return true;
-                
-                if (m_Snapshot.coreTypes.nativeComponent >= 0 && 
-                    nativeType.IsSubclassOf(m_Snapshot.coreTypes.nativeComponent))
-                    return true;
+                // // Check if it's a GameObject or Component (these are scene roots)
+                // var nativeType = m_Snapshot.nativeTypes[nativeObj.nativeTypesArrayIndex];
+                // if (m_Snapshot.coreTypes.nativeGameObject >= 0 && 
+                //     nativeObj.GetType().IsSubclassOf(m_Snapshot.coreTypes.nativeGameObject))
+                //     return true;
+                //
+                // if (m_Snapshot.coreTypes.nativeComponent >= 0 && 
+                //     nativeType.IsSubclassOf(m_Snapshot.coreTypes.nativeComponent))
+                //     return true;
             }
             
             // Check if there are no references to this object (it's a root by isolation)
