@@ -2,25 +2,28 @@
 // Heap Explorer for Unity. Copyright (c) 2019-2024 Peter Schraut (www.console-dev.de). See LICENSE.md
 // https://github.com/pschraut/UnityHeapExplorer/
 //
+
+using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 using UnityEditor;
 
 namespace HeapExplorer
 {
     // Simple graph node data structure
-    public class GraphNodeData
+    public class GraphNodeData : IEqualityComparer<GraphNodeData>
     {
-        public int id;
-        public string title;
-        public string subtitle;
+        public readonly int id;
+        public readonly string title;
+        public readonly string subtitle;
+        public readonly bool isManaged;
+        public readonly int objectIndex;
+        
+        public HashSet<int> childNodes = new HashSet<int>();
+        
         public Vector2 position;
         public Rect rect;
-        public bool isManaged;
-        public int objectIndex;
         public bool isExpanded;
-        public List<int> childNodes = new List<int>();
         
         public GraphNodeData(int id, string title, string subtitle, Vector2 position, bool isManaged, int objectIndex)
         {
@@ -33,15 +36,86 @@ namespace HeapExplorer
             this.rect = new Rect(position, new Vector2(200, 80));
             this.isExpanded = false;
         }
+
+        public bool Equals(GraphNodeData other)
+        {
+            if (other is null)
+            {
+                return false;
+            }
+
+            if (ReferenceEquals(this, other))
+            {
+                return true;
+            }
+
+            return isManaged == other.isManaged && objectIndex == other.objectIndex;
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (obj is null)
+            {
+                return false;
+            }
+
+            if (ReferenceEquals(this, obj))
+            {
+                return true;
+            }
+
+            if (obj.GetType() != GetType())
+            {
+                return false;
+            }
+
+            return Equals((GraphNodeData)obj);
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(isManaged, objectIndex);
+        }
+
+        public bool Equals(GraphNodeData x, GraphNodeData y)
+        {
+            if (ReferenceEquals(x, y))
+            {
+                return true;
+            }
+
+            if (x is null)
+            {
+                return false;
+            }
+
+            if (y is null)
+            {
+                return false;
+            }
+
+            if (x.GetType() != y.GetType())
+            {
+                return false;
+            }
+
+            return x.isManaged == y.isManaged && x.objectIndex == y.objectIndex;
+        }
+
+        public int GetHashCode(GraphNodeData obj)
+        {
+            return HashCode.Combine(obj.isManaged, obj.objectIndex);
+        }
     }
 
     public class ReferenceGraphViewIMGUI
     {
-        const int MAX_CHILD_NODES = 10; // Maximum number of child nodes to display per expansion
+        const int MAX_CHILD_NODES = 10;           // Maximum number of child nodes to display per expansion
         const float NODE_VERTICAL_SPACING = 120f; // Vertical spacing between child nodes
 
         PackedMemorySnapshot m_Snapshot;
         Dictionary<int, GraphNodeData> m_Nodes = new Dictionary<int, GraphNodeData>();
+        HashSet<GraphNodeData> m_NodesSet = new HashSet<GraphNodeData>();
         int m_NextNodeId = 0;
         Vector2 m_ScrollPosition;
         Vector2 m_GraphOffset = Vector2.zero;
@@ -66,26 +140,52 @@ namespace HeapExplorer
         public void ShowManagedObject(PackedManagedObject obj, Vector2 position)
         {
             Clear();
-            
-            var type = m_Snapshot.managedTypes[obj.managedTypesArrayIndex];
-            var title = type.name;
-            var subtitle = $"Size: {EditorUtility.FormatBytes(obj.size)}\nAddr: 0x{obj.address:X}";
-            
-            var node = new GraphNodeData(m_NextNodeId++, title, subtitle, position, true, obj.managedObjectsArrayIndex);
-            m_Nodes[node.id] = node;
+            AddManagedObjectNode(obj, position, null);
         }
-
+        
         public void ShowNativeObject(PackedNativeUnityEngineObject obj, Vector2 position)
         {
             Clear();
-            
+            AddNativeObjectNode(obj, position, null);
+        }
+
+        void AddManagedObjectNode(PackedManagedObject obj, Vector2 position, GraphNodeData parent)
+        {
+            var type = m_Snapshot.managedTypes[obj.managedTypesArrayIndex];
+            var title = type.name;
+            var subtitle = $"Size: {EditorUtility.FormatBytes(obj.size)}\nAddr: 0x{obj.address:X}";
+
+            var node = new GraphNodeData(m_NextNodeId++, title, subtitle, position, true, obj.managedObjectsArrayIndex);
+            AddNode(parent, node);
+        }
+
+        void AddNativeObjectNode(PackedNativeUnityEngineObject obj, Vector2 position, GraphNodeData parent)
+        {
             var type = m_Snapshot.nativeTypes[obj.nativeTypesArrayIndex];
             var title = type.name;
             var subtitle = !string.IsNullOrEmpty(obj.name) ? $"Name: {obj.name}\n" : "";
             subtitle += $"Size: {EditorUtility.FormatBytes(obj.size)}";
-            
+
             var node = new GraphNodeData(m_NextNodeId++, title, subtitle, position, false, obj.nativeObjectsArrayIndex);
-            m_Nodes[node.id] = node;
+            AddNode(parent, node);
+        }
+        
+        void AddNode(GraphNodeData parent, GraphNodeData node)
+        {
+            if (m_NodesSet.Add(node))
+            {
+                m_Nodes[node.id] = node;
+            }
+            else
+            {
+                // This is a hack because I'm lazy to implement the comparation before the creation of the node
+                m_NodesSet.TryGetValue(node, out node);
+            }
+
+            if (parent != null)
+            {
+                parent.childNodes.Add(node.id);
+            }
         }
 
         public void OnGUI(Rect rect)
@@ -344,7 +444,7 @@ namespace HeapExplorer
             Rect instructionRect = new Rect(rect.x + 5, rect.y + 5, 350, 75);
             GUI.Label(instructionRect, "Click [+]: Expand one level\nClick [R]: Expand to root\nDrag: Move node\nMiddle-click drag: Pan view\nScroll: Zoom", style);
         }
-
+        
         void ExpandNode(GraphNodeData node)
         {
             if (node.isExpanded)
@@ -385,28 +485,15 @@ namespace HeapExplorer
                 var conn = referencedBy[i];
                 Vector2 childPosition = new Vector2(node.position.x - 250, startY + i * NODE_VERTICAL_SPACING);
                 
-                GraphNodeData childNode = null;
-                
                 if (conn.fromKind == PackedConnection.Kind.Managed && conn.from >= 0 && conn.from < m_Snapshot.managedObjects.Length)
                 {
                     var fromObj = m_Snapshot.managedObjects[conn.from];
-                    var type = m_Snapshot.managedTypes[fromObj.managedTypesArrayIndex];
-                    var subtitle = $"Size: {EditorUtility.FormatBytes(fromObj.size)}\nAddr: 0x{fromObj.address:X}";
-                    childNode = new GraphNodeData(m_NextNodeId++, type.name, subtitle, childPosition, true, fromObj.managedObjectsArrayIndex);
+                    AddManagedObjectNode(fromObj, childPosition, node);
                 }
                 else if (conn.fromKind == PackedConnection.Kind.Native && conn.from >= 0 && conn.from < m_Snapshot.nativeObjects.Length)
                 {
                     var fromObj = m_Snapshot.nativeObjects[conn.from];
-                    var type = m_Snapshot.nativeTypes[fromObj.nativeTypesArrayIndex];
-                    var subtitle = !string.IsNullOrEmpty(fromObj.name) ? $"Name: {fromObj.name}\n" : "";
-                    subtitle += $"Size: {EditorUtility.FormatBytes(fromObj.size)}";
-                    childNode = new GraphNodeData(m_NextNodeId++, type.name, subtitle, childPosition, false, fromObj.nativeObjectsArrayIndex);
-                }
-                
-                if (childNode != null)
-                {
-                    m_Nodes[childNode.id] = childNode;
-                    node.childNodes.Add(childNode.id);
+                    AddNativeObjectNode(fromObj, childPosition, node);
                 }
             }
         }
@@ -415,9 +502,8 @@ namespace HeapExplorer
         {
             // Expand the starting node and continue expanding until we reach a root
             var currentNodes = new List<GraphNodeData> { startNode };
-            var processedNodes = new HashSet<int>();
             int iterationCount = 0;
-            const int MAX_ITERATIONS = 20; // Safety limit to prevent infinite loops
+            const int MAX_ITERATIONS = 16; // Safety limit to prevent infinite loops
             
             while (currentNodes.Count > 0 && iterationCount < MAX_ITERATIONS)
             {
@@ -425,11 +511,6 @@ namespace HeapExplorer
                 
                 foreach (var node in currentNodes)
                 {
-                    if (processedNodes.Contains(node.id))
-                        continue;
-                    
-                    processedNodes.Add(node.id);
-                    
                     // Check if this node is a root
                     if (IsNodeRoot(node))
                     {
