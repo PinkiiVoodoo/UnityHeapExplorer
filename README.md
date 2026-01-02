@@ -107,6 +107,23 @@ The "delta" columns indicate changes. The "C# Objects" and "C++ Objects" nodes c
 Snapshot "A" is always the one you loaded using "File > Open Snapshot" or captured. While "B" is the memory snapshot that is used for comparison and can be replaced using the "Load..." button in the Compare Snapshot view.
 
 
+# Reference Graph
+
+The Reference Graph view provides a visual representation of object references to help identify memory leaks. You can interactively explore which objects reference other objects in memory.
+
+![alt text](Documentation~/images/reference_graph_01.png "Reference Graph View")
+
+## Key Features
+
+- **Visual Navigation**: See object relationships in a graph format
+- **Interactive Exploration**: Click [+] to expand one level, or [R] to expand to root and trace full reference chains
+- **Pan and Zoom**: Navigate large graphs with middle-click drag and scroll wheel
+- **Object Information**: Each node shows type, size, and memory address
+- **Leak Detection**: Trace reference chains to find why objects aren't being garbage collected
+
+For detailed information, see [Reference Graph Documentation](Documentation~/ReferenceGraphView.md).
+
+
 # C# Objects
 
 The C# Objects view displays managed objects found in a memory snapshot. Object instances are grouped by type. Grouping object instances by type allows to see how much memory a certain type is using.
