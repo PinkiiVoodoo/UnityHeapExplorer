@@ -31,6 +31,10 @@ namespace HeapExplorer
         GraphNodeData m_DraggingNode = null;
         Vector2 m_DragOffset;
         GraphNodeData m_HoveredNode = null;
+        
+        // Cached GUIStyles for performance
+        static GUIStyle s_RootIconStyle;
+        static GUIStyle s_TooltipStyle;
         public ReferenceGraphViewIMGUI(PackedMemorySnapshot snapshot, Action<AbstractThreadJob> jobRunner)
         {
             m_Snapshot = snapshot;
@@ -210,8 +214,8 @@ namespace HeapExplorer
                 }
             }
             
-            // Track hovered node for tooltip
-            if (e.type == EventType.MouseMove || e.type == EventType.Repaint)
+            // Track hovered node for tooltip (only on mouse move for performance)
+            if (e.type == EventType.MouseMove)
             {
                 Vector2 mouseInGraphSpace = TransformMouseToGraphSpace(e.mousePosition, rect, m_Zoom);
                 m_HoveredNode = null;
@@ -261,13 +265,18 @@ namespace HeapExplorer
             // Draw root indicator icon if it's a root node
             if (node.isRoot)
             {
-                // Draw a small crown/root icon in the top-left corner
+                // Initialize cached style if needed
+                if (s_RootIconStyle == null)
+                {
+                    s_RootIconStyle = new GUIStyle(EditorStyles.boldLabel);
+                    s_RootIconStyle.normal.textColor = new Color(1.0f, 0.84f, 0.0f); // Gold
+                    s_RootIconStyle.fontSize = 13;
+                    s_RootIconStyle.alignment = TextAnchor.MiddleCenter;
+                }
+                
+                // Draw a small anchor icon in the top-left corner
                 Rect rootIconRect = new Rect(nodeRect.x + 5, nodeRect.y + 3, 14, 14);
-                GUIStyle rootIconStyle = new GUIStyle(EditorStyles.boldLabel);
-                rootIconStyle.normal.textColor = new Color(1.0f, 0.84f, 0.0f); // Gold
-                rootIconStyle.fontSize = 13;
-                rootIconStyle.alignment = TextAnchor.MiddleCenter;
-                GUI.Label(rootIconRect, "⚓", rootIconStyle); // Anchor symbol for root
+                GUI.Label(rootIconRect, "⚓", s_RootIconStyle);
             }
             
             // Draw title
@@ -379,15 +388,18 @@ namespace HeapExplorer
                 // Create tooltip text with root reason
                 string tooltipText = GetRootReasonDescription(m_HoveredNode.rootReason);
                 
-                // Calculate tooltip size
-                GUIStyle tooltipStyle = new GUIStyle(EditorStyles.helpBox);
-                tooltipStyle.normal.textColor = Color.white;
-                tooltipStyle.fontSize = 11;
-                tooltipStyle.padding = new RectOffset(8, 8, 6, 6);
-                tooltipStyle.alignment = TextAnchor.MiddleLeft;
+                // Initialize cached style if needed
+                if (s_TooltipStyle == null)
+                {
+                    s_TooltipStyle = new GUIStyle(EditorStyles.helpBox);
+                    s_TooltipStyle.normal.textColor = Color.white;
+                    s_TooltipStyle.fontSize = 11;
+                    s_TooltipStyle.padding = new RectOffset(8, 8, 6, 6);
+                    s_TooltipStyle.alignment = TextAnchor.MiddleLeft;
+                }
                 
                 GUIContent tooltipContent = new GUIContent(tooltipText);
-                Vector2 tooltipSize = tooltipStyle.CalcSize(tooltipContent);
+                Vector2 tooltipSize = s_TooltipStyle.CalcSize(tooltipContent);
                 tooltipSize.x += 16; // Add some padding
                 tooltipSize.y += 12;
                 
@@ -408,7 +420,7 @@ namespace HeapExplorer
                 EditorGUI.DrawRect(tooltipRect, new Color(0.2f, 0.2f, 0.2f, 0.95f)); // Dark background
                 
                 // Draw tooltip text
-                GUI.Label(tooltipRect, tooltipContent, tooltipStyle);
+                GUI.Label(tooltipRect, tooltipContent, s_TooltipStyle);
             }
         }
         
@@ -416,6 +428,8 @@ namespace HeapExplorer
         {
             switch (reason)
             {
+                case RootPathReason.None:
+                    return "Root: Not a Root Node";
                 case RootPathReason.Static:
                     return "Root: Static Field";
                 case RootPathReason.UnityManager:
@@ -431,9 +445,8 @@ namespace HeapExplorer
                 case RootPathReason.AssetBundle:
                     return "Root: AssetBundle";
                 case RootPathReason.Unknown:
-                    return "Root: Unknown Reason";
                 default:
-                    return "Root: None";
+                    return "Root: Unknown Reason";
             }
         }
         
