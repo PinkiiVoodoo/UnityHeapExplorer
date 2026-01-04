@@ -11,6 +11,7 @@ namespace HeapExplorer
 
         public readonly ObjectProxy objectProxy;
         public readonly RootPathUtility paths = new();
+        public int pathIndex = -1;
 
         public readonly RootPathReason rootReason;
         public readonly bool isRoot;
@@ -136,27 +137,10 @@ namespace HeapExplorer
         {
             return GetHashCode(this);
         }
-    }
 
-    public class RootPathNodeJob : RootPathJob
-    {
-        GraphNodeData data;
-        ReferenceGraphViewIMGUI control;
-        
-        public RootPathNodeJob(PackedMemorySnapshot packedMemorySnapshot, GraphNodeData data, ReferenceGraphViewIMGUI control)
+        public bool CanExpandToRoot()
         {
-            this.snapshot = packedMemorySnapshot;
-            this.paths = data.paths;
-            this.objectProxy = data.objectProxy;
-            this.data = data;
-            this.control = control;
-        }
-        
-        public override void ThreadFunc()
-        {
-            base.ThreadFunc();
-            control.AddPathNodes(paths[0], data);
+            return paths.scanned == 0 || pathIndex < paths.count;
         }
     }
-
 }

@@ -14,14 +14,10 @@ namespace HeapExplorer
 
     public class ReferenceGraphViewIMGUI
     {
-        const int MAX_CHILD_NODES = 10;           // Maximum number of child nodes to display per expansion
         const float NODE_VERTICAL_SPACING = 120f; // Vertical spacing between child nodes
 
         readonly PackedMemorySnapshot m_Snapshot;
         readonly Action<AbstractThreadJob> m_JobRunner;
-        
-        // Root Paths
-        readonly RootPathUtility m_Paths;
         
         Dictionary<int, GraphNodeData> m_Nodes = new Dictionary<int, GraphNodeData>();
         HashSet<GraphNodeData> m_NodesSet = new HashSet<GraphNodeData>();
@@ -45,16 +41,29 @@ namespace HeapExplorer
         public void ShowObject(ObjectProxy obj, Vector2 position)
         {
             Clear();
-            AddObjectNode(obj, position, null);
+            AddObjectNode(obj, position);
         }
 
+        void AddObjectNode(ObjectProxy obj, Vector2 position)
+        {
+            AddObjectNode(obj, position, null);
+        }
+        
+        void AddObjectNode(ObjectProxy obj, GraphNodeData parent)
+        {
+            Vector2 position = new Vector2(
+                parent.position.x - 250,
+                parent.position.y + parent.childNodes.Count * NODE_VERTICAL_SPACING);
+            AddObjectNode(obj, position, parent);
+        }
+        
         void AddObjectNode(ObjectProxy obj, Vector2 position, GraphNodeData parent)
         {
             var node = new GraphNodeData(position, obj);
             AddNode(parent, node);
         }
         
-        GraphNodeData AddNode(GraphNodeData parent, GraphNodeData node)
+        void AddNode(GraphNodeData parent, GraphNodeData node)
         {
             if (m_NodesSet.Add(node))
             {
@@ -70,8 +79,6 @@ namespace HeapExplorer
             {
                 parent.childNodes.Add(node.GetHashCode());
             }
-            
-            return node;
         }
 
         public void OnGUI(Rect rect)
@@ -162,9 +169,9 @@ namespace HeapExplorer
                         if (!node.isExpanded)
                         {
                             Rect expandToRootButtonRect = new Rect(nodeRect.x + nodeRect.width - 38, nodeRect.y + 5, 15, 15);
-                            if (expandToRootButtonRect.Contains(mouseInGraphSpace))
+                            if (node.CanExpandToRoot() && expandToRootButtonRect.Contains(mouseInGraphSpace))
                             {
-                                ExpandToRoot2(node);
+                                ExpandToRoot(node);
                                 e.Use();
                                 break;
                             }
@@ -260,23 +267,26 @@ namespace HeapExplorer
             // Draw expand buttons if not expanded
             if (!node.isExpanded)
             {
-                // Draw expand to root button (left button with "R")
-                Rect expandToRootButtonRect = new Rect(nodeRect.x + nodeRect.width - 38, nodeRect.y + 5, 15, 15);
-                
-                // Draw button background
-                EditorGUI.DrawRect(expandToRootButtonRect, new Color(0.2f, 0.2f, 0.2f, 0.8f));
-                
-                // Draw button border
-                Rect rootButtonBorder = new Rect(expandToRootButtonRect.x - 1, expandToRootButtonRect.y - 1, expandToRootButtonRect.width + 2, expandToRootButtonRect.height + 2);
-                EditorGUI.DrawRect(rootButtonBorder, new Color(0.8f, 0.6f, 0.2f)); // Orange border for distinction
-                EditorGUI.DrawRect(expandToRootButtonRect, new Color(0.2f, 0.2f, 0.2f, 0.8f));
-                
-                // Draw R symbol
-                GUIStyle rootButtonStyle = new GUIStyle(EditorStyles.boldLabel);
-                rootButtonStyle.normal.textColor = new Color(1.0f, 0.8f, 0.3f); // Orange text
-                rootButtonStyle.fontSize = 10;
-                rootButtonStyle.alignment = TextAnchor.MiddleCenter;
-                GUI.Label(expandToRootButtonRect, "R", rootButtonStyle);
+                if (node.CanExpandToRoot())
+                {
+                    // Draw expand to root button (left button with "R")
+                    Rect expandToRootButtonRect = new Rect(nodeRect.x + nodeRect.width - 38, nodeRect.y + 5, 15, 15);
+                    
+                    // Draw button background
+                    EditorGUI.DrawRect(expandToRootButtonRect, new Color(0.2f, 0.2f, 0.2f, 0.8f));
+                    
+                    // Draw button border
+                    Rect rootButtonBorder = new Rect(expandToRootButtonRect.x - 1, expandToRootButtonRect.y - 1, expandToRootButtonRect.width + 2, expandToRootButtonRect.height + 2);
+                    EditorGUI.DrawRect(rootButtonBorder, new Color(0.8f, 0.6f, 0.2f)); // Orange border for distinction
+                    EditorGUI.DrawRect(expandToRootButtonRect, new Color(0.2f, 0.2f, 0.2f, 0.8f));
+                    
+                    // Draw R symbol
+                    GUIStyle rootButtonStyle = new GUIStyle(EditorStyles.boldLabel);
+                    rootButtonStyle.normal.textColor = new Color(1.0f, 0.8f, 0.3f); // Orange text
+                    rootButtonStyle.fontSize = 10;
+                    rootButtonStyle.alignment = TextAnchor.MiddleCenter;
+                    GUI.Label(expandToRootButtonRect, "R", rootButtonStyle);
+                }
                 
                 // Draw expand one level button (right button with "+")
                 Rect expandButtonRect = new Rect(nodeRect.x + nodeRect.width - 20, nodeRect.y + 5, 15, 15);
@@ -347,20 +357,14 @@ namespace HeapExplorer
             var issues = 0;
             var referencedBy = RootPathUtility.GetReferencedBy(node.objectProxy, ref issues);
             
-            // Create child nodes
-            int count = Mathf.Min(referencedBy.Count, MAX_CHILD_NODES);
-            float startY = node.position.y - (count - 1) * NODE_VERTICAL_SPACING / 2f;
-            
-            for (int i = 0; i < count; i++)
+            for (int i = 0; i < referencedBy.Count; i++)
             {
                 var conn = referencedBy[i];
-                Vector2 childPosition = new Vector2(node.position.x - 250, startY + i * NODE_VERTICAL_SPACING);
-                
-                AddObjectNode(conn, childPosition, node);
+                AddObjectNode(conn, node);
             }
         }
 
-        void ExpandToRoot2(GraphNodeData startNode)
+        void ExpandToRoot(GraphNodeData startNode)
         {
             m_JobRunner(new RootPathNodeJob(m_Snapshot, startNode, this));
         }
@@ -368,17 +372,12 @@ namespace HeapExplorer
         public void AddPathNodes(RootPath path, GraphNodeData originNode)
         {
             var currentNode = originNode;
-            var currentPosition = originNode.position;
             
-            Vector2 childOffset = new Vector2(-250, 0);
-            
-            // Add nodes from the path starting from the root
             for (int i = 1; i < path.count ; i++)
             {
                 var objProxy = path[i];
-                AddObjectNode(objProxy, currentPosition + childOffset, currentNode);
+                AddObjectNode(objProxy, currentNode);
                 currentNode = m_Nodes[objProxy.GetHashCode()];
-                currentPosition = currentNode.position;
             }
         }
     }
