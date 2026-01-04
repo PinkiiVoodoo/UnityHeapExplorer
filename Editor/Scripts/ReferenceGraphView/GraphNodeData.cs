@@ -13,6 +13,7 @@ namespace HeapExplorer
         public readonly RootPathUtility paths = new();
 
         public readonly RootPathReason rootReason;
+        public readonly bool isRoot;
 
         public HashSet<int> childNodes = new HashSet<int>();
 
@@ -25,7 +26,7 @@ namespace HeapExplorer
             this.position = position;
             this.objectProxy = objectProxy;
 
-            var isRoot = RootPathUtility.IsRoot(objectProxy, out rootReason);
+            isRoot = RootPathUtility.IsRoot(objectProxy, out rootReason);
             
             rect = new Rect(position, new Vector2(200, 80));
             isExpanded = false;

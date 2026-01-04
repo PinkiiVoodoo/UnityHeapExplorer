@@ -30,7 +30,7 @@ namespace HeapExplorer
         Vector2 m_PanStart;
         GraphNodeData m_DraggingNode = null;
         Vector2 m_DragOffset;
-
+        GraphNodeData m_HoveredNode = null;
         public ReferenceGraphViewIMGUI(PackedMemorySnapshot snapshot, Action<AbstractThreadJob> jobRunner)
         {
             m_Snapshot = snapshot;
@@ -105,6 +105,9 @@ namespace HeapExplorer
             
             // Draw instructions overlay
             DrawInstructions(rect);
+            
+            // Draw tooltip for hovered root node
+            DrawTooltip(rect);
         }
 
         void HandleEvents(Rect rect)
@@ -206,6 +209,22 @@ namespace HeapExplorer
                     e.Use();
                 }
             }
+            
+            // Track hovered node for tooltip
+            if (e.type == EventType.MouseMove || e.type == EventType.Repaint)
+            {
+                Vector2 mouseInGraphSpace = TransformMouseToGraphSpace(e.mousePosition, rect, m_Zoom);
+                m_HoveredNode = null;
+                
+                foreach (var node in m_Nodes.Values)
+                {
+                    if (node.rect.Contains(mouseInGraphSpace))
+                    {
+                        m_HoveredNode = node;
+                        break;
+                    }
+                }
+            }
         }
 
         // Transform mouse position from screen space to graph space, accounting for zoom pivot
@@ -224,9 +243,32 @@ namespace HeapExplorer
             Rect nodeRect = new Rect(node.position, node.rect.size);
             
             // Draw background and border
+            // Root nodes get a special thick golden border
+            if (node.isRoot)
+            {
+                // Draw outer golden glow border for root nodes
+                Rect glowRect1 = new Rect(nodeRect.x - 3, nodeRect.y - 3, nodeRect.width + 6, nodeRect.height + 6);
+                EditorGUI.DrawRect(glowRect1, new Color(1.0f, 0.84f, 0.0f, 0.8f)); // Gold
+                
+                Rect glowRect2 = new Rect(nodeRect.x - 2, nodeRect.y - 2, nodeRect.width + 4, nodeRect.height + 4);
+                EditorGUI.DrawRect(glowRect2, new Color(1.0f, 0.9f, 0.3f, 0.9f)); // Lighter gold
+            }
+            
             Rect borderRect = new Rect(nodeRect.x - 1, nodeRect.y - 1, nodeRect.width + 2, nodeRect.height + 2);
             EditorGUI.DrawRect(borderRect, Color.black);
             EditorGUI.DrawRect(nodeRect, node.color);
+            
+            // Draw root indicator icon if it's a root node
+            if (node.isRoot)
+            {
+                // Draw a small crown/root icon in the top-left corner
+                Rect rootIconRect = new Rect(nodeRect.x + 5, nodeRect.y + 3, 14, 14);
+                GUIStyle rootIconStyle = new GUIStyle(EditorStyles.boldLabel);
+                rootIconStyle.normal.textColor = new Color(1.0f, 0.84f, 0.0f); // Gold
+                rootIconStyle.fontSize = 13;
+                rootIconStyle.alignment = TextAnchor.MiddleCenter;
+                GUI.Label(rootIconRect, "⚓", rootIconStyle); // Anchor symbol for root
+            }
             
             // Draw title
             GUIStyle titleStyle = new GUIStyle(EditorStyles.boldLabel);
@@ -325,6 +367,74 @@ namespace HeapExplorer
             
             Rect instructionRect = new Rect(rect.x + 5, rect.y + 5, 350, 75);
             GUI.Label(instructionRect, "Click [+]: Expand one level\nClick [R]: Expand to root\nDrag: Move node\nMiddle-click drag: Pan view\nScroll: Zoom", style);
+        }
+        
+        void DrawTooltip(Rect rect)
+        {
+            if (m_HoveredNode != null && m_HoveredNode.isRoot)
+            {
+                // Get mouse position
+                Vector2 mousePos = Event.current.mousePosition;
+                
+                // Create tooltip text with root reason
+                string tooltipText = GetRootReasonDescription(m_HoveredNode.rootReason);
+                
+                // Calculate tooltip size
+                GUIStyle tooltipStyle = new GUIStyle(EditorStyles.helpBox);
+                tooltipStyle.normal.textColor = Color.white;
+                tooltipStyle.fontSize = 11;
+                tooltipStyle.padding = new RectOffset(8, 8, 6, 6);
+                tooltipStyle.alignment = TextAnchor.MiddleLeft;
+                
+                GUIContent tooltipContent = new GUIContent(tooltipText);
+                Vector2 tooltipSize = tooltipStyle.CalcSize(tooltipContent);
+                tooltipSize.x += 16; // Add some padding
+                tooltipSize.y += 12;
+                
+                // Position tooltip near mouse, but keep it within the rect bounds
+                Vector2 tooltipPos = mousePos + new Vector2(15, 15);
+                
+                // Clamp to rect bounds
+                if (tooltipPos.x + tooltipSize.x > rect.xMax)
+                    tooltipPos.x = mousePos.x - tooltipSize.x - 5;
+                if (tooltipPos.y + tooltipSize.y > rect.yMax)
+                    tooltipPos.y = mousePos.y - tooltipSize.y - 5;
+                
+                Rect tooltipRect = new Rect(tooltipPos, tooltipSize);
+                
+                // Draw tooltip background with border
+                Rect borderRect = new Rect(tooltipRect.x - 2, tooltipRect.y - 2, tooltipRect.width + 4, tooltipRect.height + 4);
+                EditorGUI.DrawRect(borderRect, new Color(1.0f, 0.84f, 0.0f, 0.9f)); // Gold border
+                EditorGUI.DrawRect(tooltipRect, new Color(0.2f, 0.2f, 0.2f, 0.95f)); // Dark background
+                
+                // Draw tooltip text
+                GUI.Label(tooltipRect, tooltipContent, tooltipStyle);
+            }
+        }
+        
+        string GetRootReasonDescription(RootPathReason reason)
+        {
+            switch (reason)
+            {
+                case RootPathReason.Static:
+                    return "Root: Static Field";
+                case RootPathReason.UnityManager:
+                    return "Root: Unity Manager";
+                case RootPathReason.DontDestroyOnLoad:
+                    return "Root: DontDestroyOnLoad";
+                case RootPathReason.DontUnloadUnusedAsset:
+                    return "Root: DontUnloadUnusedAsset";
+                case RootPathReason.Component:
+                    return "Root: Component";
+                case RootPathReason.GameObject:
+                    return "Root: GameObject";
+                case RootPathReason.AssetBundle:
+                    return "Root: AssetBundle";
+                case RootPathReason.Unknown:
+                    return "Root: Unknown Reason";
+                default:
+                    return "Root: None";
+            }
         }
         
         void ExpandNode(GraphNodeData node)
