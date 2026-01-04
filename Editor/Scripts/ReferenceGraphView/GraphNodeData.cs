@@ -12,6 +12,9 @@ namespace HeapExplorer
         public readonly ObjectProxy objectProxy;
         public readonly RootPathUtility paths = new();
 
+        public readonly RootPathReason rootReason;
+        public readonly bool isRoot;
+
         public HashSet<int> childNodes = new HashSet<int>();
 
         public Vector2 position;
@@ -23,11 +26,13 @@ namespace HeapExplorer
             this.position = position;
             this.objectProxy = objectProxy;
 
+            isRoot = RootPathUtility.IsRoot(objectProxy, out rootReason);
+            
             rect = new Rect(position, new Vector2(200, 80));
             isExpanded = false;
 
             title = CreateTitle(objectProxy);
-            subtitle = CreateSubtitle(objectProxy);
+            subtitle = CreateSubtitle(objectProxy) + (isRoot ? $"\n({rootReason})" : "");
             color = CreateColor(objectProxy);
         }
 

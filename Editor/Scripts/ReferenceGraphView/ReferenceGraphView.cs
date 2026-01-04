@@ -223,6 +223,16 @@ namespace HeapExplorer
         {
             Rect nodeRect = new Rect(node.position, node.rect.size);
             
+            if (node.isRoot)
+            {
+                // Draw outer golden glow border for root nodes
+                Rect glowRect1 = new Rect(nodeRect.x - 3, nodeRect.y - 3, nodeRect.width + 6, nodeRect.height + 6);
+                EditorGUI.DrawRect(glowRect1, new Color(1.0f, 0.84f, 0.0f, 0.8f)); // Gold
+                
+                Rect glowRect2 = new Rect(nodeRect.x - 2, nodeRect.y - 2, nodeRect.width + 4, nodeRect.height + 4);
+                EditorGUI.DrawRect(glowRect2, new Color(1.0f, 0.9f, 0.3f, 0.9f)); // Lighter gold
+            }
+            
             // Draw background and border
             Rect borderRect = new Rect(nodeRect.x - 1, nodeRect.y - 1, nodeRect.width + 2, nodeRect.height + 2);
             EditorGUI.DrawRect(borderRect, Color.black);
