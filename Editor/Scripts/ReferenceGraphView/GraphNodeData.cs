@@ -155,7 +155,7 @@ namespace HeapExplorer
         public override void ThreadFunc()
         {
             base.ThreadFunc();
-            control.AddPathNodes(paths[0]);
+            control.AddPathNodes(paths[0], data);
         }
     }
 

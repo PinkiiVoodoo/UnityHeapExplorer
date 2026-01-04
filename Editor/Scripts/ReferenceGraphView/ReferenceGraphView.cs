@@ -365,15 +365,20 @@ namespace HeapExplorer
             m_JobRunner(new RootPathNodeJob(m_Snapshot, startNode, this));
         }
         
-        public void AddPathNodes(RootPath path)
+        public void AddPathNodes(RootPath path, GraphNodeData originNode)
         {
+            var currentNode = originNode;
+            var currentPosition = originNode.position;
+            
+            Vector2 childOffset = new Vector2(-250, 0);
+            
             // Add nodes from the path starting from the root
-            for (int i = 0; i < path.count ; i++)
+            for (int i = 1; i < path.count ; i++)
             {
                 var objProxy = path[i];
-
-                var nodeForObj = m_Nodes[objProxy.GetHashCode()];
-                ExpandNode(nodeForObj);
+                AddObjectNode(objProxy, currentPosition + childOffset, currentNode);
+                currentNode = m_Nodes[objProxy.GetHashCode()];
+                currentPosition = currentNode.position;
             }
         }
     }
