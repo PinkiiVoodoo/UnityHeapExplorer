@@ -79,7 +79,7 @@ namespace HeapExplorer
             // Graph view area
             if (m_GraphView == null && snapshot != null)
             {
-                m_GraphView = new ReferenceGraphViewIMGUI(snapshot);
+                m_GraphView = new ReferenceGraphViewIMGUI(snapshot, ScheduleJob);
                 m_NeedsRebuild = true;
             }
 
@@ -89,12 +89,12 @@ namespace HeapExplorer
 
                 if (m_InitialManagedObject.HasValue)
                 {
-                    m_GraphView.ShowManagedObject(m_InitialManagedObject.Value, new Vector2(400, 200));
+                    m_GraphView.ShowObject(new ObjectProxy(snapshot, m_InitialManagedObject.Value), new Vector2(400, 200));
                     m_InitialManagedObject = null;
                 }
                 else if (m_InitialNativeObject.HasValue)
                 {
-                    m_GraphView.ShowNativeObject(m_InitialNativeObject.Value, new Vector2(400, 200));
+                    m_GraphView.ShowObject(new ObjectProxy(snapshot,m_InitialNativeObject.Value), new Vector2(400, 200));
                     m_InitialNativeObject = null;
                 }
                 else
@@ -123,12 +123,12 @@ namespace HeapExplorer
             // Find a valid managed object to display
             for (int i = 0; i < snapshot.managedObjects.Length && i < 100; i++)
             {
-                var obj = snapshot.managedObjects[i];
+                var obj = snapshot.managedObjects[Random.Range(0, snapshot.managedObjects.Length)];
                 if (obj.address != 0 && obj.size > 0)
                 {
                     if (m_GraphView != null)
                     {
-                        m_GraphView.ShowManagedObject(obj, new Vector2(400, 200));
+                        m_GraphView.ShowObject(new ObjectProxy(snapshot, obj), new Vector2(400, 200));
                     }
                     else
                     {
@@ -151,12 +151,12 @@ namespace HeapExplorer
             // Find a valid native object to display
             for (int i = 0; i < snapshot.nativeObjects.Length && i < 100; i++)
             {
-                var obj = snapshot.nativeObjects[i];
+                var obj = snapshot.nativeObjects[Random.Range(0, snapshot.nativeObjects.Length)];
                 if (obj.size > 0)
                 {
                     if (m_GraphView != null)
                     {
-                        m_GraphView.ShowNativeObject(obj, new Vector2(400, 200));
+                        m_GraphView.ShowObject(new ObjectProxy(snapshot, obj), new Vector2(400, 200));
                     }
                     else
                     {
@@ -172,7 +172,7 @@ namespace HeapExplorer
         {
             if (m_GraphView != null)
             {
-                m_GraphView.ShowManagedObject(obj, new Vector2(400, 200));
+                m_GraphView.ShowObject(new ObjectProxy(snapshot, obj), new Vector2(400, 200));
             }
             else
             {
@@ -185,7 +185,7 @@ namespace HeapExplorer
         {
             if (m_GraphView != null)
             {
-                m_GraphView.ShowNativeObject(obj, new Vector2(400, 200));
+                m_GraphView.ShowObject(new ObjectProxy(snapshot, obj), new Vector2(400, 200));
             }
             else
             {

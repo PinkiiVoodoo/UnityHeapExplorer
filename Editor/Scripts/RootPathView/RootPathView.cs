@@ -51,6 +51,7 @@ namespace HeapExplorer
                     var reason = "No root object selected.";
                     if (m_Selected != null)
                         reason = m_Selected.reasonString;
+
                     EditorGUI.HelpBox(GUILayoutUtility.GetRect(10, 48, GUILayout.ExpandWidth(true)), reason, MessageType.Info);
                 }
             }
@@ -107,14 +108,14 @@ namespace HeapExplorer
             m_Selected = null;
             m_RootPaths.Abort();
             m_RootPaths = new RootPathUtility();
-            ScheduleJob(new RootPathJob() { control = m_RootPathControl });
+            ScheduleJob(new RootPathTreeJob() { control = m_RootPathControl });
         }
 
         void ScheduleJob(ObjectProxy objectProxy)
         {
             Clear();
 
-            var job = new RootPathJob
+            var job = new RootPathTreeJob
             {
                 snapshot = snapshot,
                 objectProxy = objectProxy,
@@ -130,26 +131,19 @@ namespace HeapExplorer
             m_Selected = path;
         }
 
-        class RootPathJob : AbstractThreadJob
+        class RootPathTreeJob : RootPathJob
         {
-            public ObjectProxy objectProxy;
             public RootPathControl control;
-            public PackedMemorySnapshot snapshot;
-
-            // in/out
-            public RootPathUtility paths;
-
+            
             // Output
             public TreeViewItem tree;
 
             public override void ThreadFunc()
             {
-                if (objectProxy != null)
-                    paths.Find(objectProxy);
-
+                base.ThreadFunc();
                 tree = control.BuildTree(snapshot, paths);
             }
-
+            
             public override void IntegrateFunc()
             {
                 control.SetTree(tree);

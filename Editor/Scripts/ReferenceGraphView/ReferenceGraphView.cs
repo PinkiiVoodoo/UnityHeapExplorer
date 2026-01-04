@@ -11,170 +11,54 @@ using UnityEditor;
 namespace HeapExplorer
 {
     // Simple graph node data structure
-    public class GraphNodeData : IEqualityComparer<GraphNodeData>
-    {
-        public readonly int id;
-        public readonly string title;
-        public readonly string subtitle;
-        public readonly bool isManaged;
-        public readonly int objectIndex;
-        
-        public HashSet<int> childNodes = new HashSet<int>();
-        
-        public Vector2 position;
-        public Rect rect;
-        public bool isExpanded;
-        
-        public GraphNodeData(int id, string title, string subtitle, Vector2 position, bool isManaged, int objectIndex)
-        {
-            this.id = id;
-            this.title = title;
-            this.subtitle = subtitle;
-            this.position = position;
-            this.isManaged = isManaged;
-            this.objectIndex = objectIndex;
-            this.rect = new Rect(position, new Vector2(200, 80));
-            this.isExpanded = false;
-        }
-
-        public bool Equals(GraphNodeData other)
-        {
-            if (other is null)
-            {
-                return false;
-            }
-
-            if (ReferenceEquals(this, other))
-            {
-                return true;
-            }
-
-            return isManaged == other.isManaged && objectIndex == other.objectIndex;
-        }
-
-        public override bool Equals(object obj)
-        {
-            if (obj is null)
-            {
-                return false;
-            }
-
-            if (ReferenceEquals(this, obj))
-            {
-                return true;
-            }
-
-            if (obj.GetType() != GetType())
-            {
-                return false;
-            }
-
-            return Equals((GraphNodeData)obj);
-        }
-
-        public override int GetHashCode()
-        {
-            return HashCode.Combine(isManaged, objectIndex);
-        }
-
-        public bool Equals(GraphNodeData x, GraphNodeData y)
-        {
-            if (ReferenceEquals(x, y))
-            {
-                return true;
-            }
-
-            if (x is null)
-            {
-                return false;
-            }
-
-            if (y is null)
-            {
-                return false;
-            }
-
-            if (x.GetType() != y.GetType())
-            {
-                return false;
-            }
-
-            return x.isManaged == y.isManaged && x.objectIndex == y.objectIndex;
-        }
-
-        public int GetHashCode(GraphNodeData obj)
-        {
-            return HashCode.Combine(obj.isManaged, obj.objectIndex);
-        }
-    }
 
     public class ReferenceGraphViewIMGUI
     {
         const int MAX_CHILD_NODES = 10;           // Maximum number of child nodes to display per expansion
         const float NODE_VERTICAL_SPACING = 120f; // Vertical spacing between child nodes
 
-        PackedMemorySnapshot m_Snapshot;
+        readonly PackedMemorySnapshot m_Snapshot;
+        readonly Action<AbstractThreadJob> m_JobRunner;
+        
+        // Root Paths
+        readonly RootPathUtility m_Paths;
+        
         Dictionary<int, GraphNodeData> m_Nodes = new Dictionary<int, GraphNodeData>();
         HashSet<GraphNodeData> m_NodesSet = new HashSet<GraphNodeData>();
-        int m_NextNodeId = 0;
-        Vector2 m_ScrollPosition;
-        Vector2 m_GraphOffset = Vector2.zero;
         float m_Zoom = 1.0f;
         bool m_IsPanning = false;
         Vector2 m_PanStart;
         GraphNodeData m_DraggingNode = null;
         Vector2 m_DragOffset;
 
-        public ReferenceGraphViewIMGUI(PackedMemorySnapshot snapshot)
+        public ReferenceGraphViewIMGUI(PackedMemorySnapshot snapshot, Action<AbstractThreadJob> jobRunner)
         {
             m_Snapshot = snapshot;
+            m_JobRunner = jobRunner;
         }
 
         public void Clear()
         {
             m_Nodes.Clear();
-            m_NextNodeId = 0;
-            m_GraphOffset = Vector2.zero;
         }
 
-        public void ShowManagedObject(PackedManagedObject obj, Vector2 position)
+        public void ShowObject(ObjectProxy obj, Vector2 position)
         {
             Clear();
-            AddManagedObjectNode(obj, position, null);
-        }
-        
-        public void ShowNativeObject(PackedNativeUnityEngineObject obj, Vector2 position)
-        {
-            Clear();
-            AddNativeObjectNode(obj, position, null);
+            AddObjectNode(obj, position, null);
         }
 
-        void AddManagedObjectNode(PackedManagedObject obj, Vector2 position, GraphNodeData parent)
+        void AddObjectNode(ObjectProxy obj, Vector2 position, GraphNodeData parent)
         {
-            var type = m_Snapshot.managedTypes[obj.managedTypesArrayIndex];
-            var title = type.name;
-            var subtitle = $"Size: {EditorUtility.FormatBytes(obj.size)}\nAddr: 0x{obj.address:X}";
-
-            var node = new GraphNodeData(m_NextNodeId++, title, subtitle, position, true, obj.managedObjectsArrayIndex);
-            AddNode(parent, node);
-        }
-
-        void AddNativeObjectNode(PackedNativeUnityEngineObject obj, Vector2 position, GraphNodeData parent)
-        {
-            var type = m_Snapshot.nativeTypes[obj.nativeTypesArrayIndex];
-            var title = type.name;
-            var subtitle = !string.IsNullOrEmpty(obj.name) ? $"Name: {obj.name}\n" : "";
-            subtitle += $"Size: {EditorUtility.FormatBytes(obj.size)}";
-
-            var node = new GraphNodeData(m_NextNodeId++, title, subtitle, position, false, obj.nativeObjectsArrayIndex);
+            var node = new GraphNodeData(position, obj);
             AddNode(parent, node);
         }
         
-        void AddNode(GraphNodeData parent, GraphNodeData node)
+        GraphNodeData AddNode(GraphNodeData parent, GraphNodeData node)
         {
             if (m_NodesSet.Add(node))
             {
-                m_Nodes[node.id] = node;
+                m_Nodes[node.GetHashCode()] = node;
             }
             else
             {
@@ -184,8 +68,10 @@ namespace HeapExplorer
 
             if (parent != null)
             {
-                parent.childNodes.Add(node.id);
+                parent.childNodes.Add(node.GetHashCode());
             }
+            
+            return node;
         }
 
         public void OnGUI(Rect rect)
@@ -278,7 +164,7 @@ namespace HeapExplorer
                             Rect expandToRootButtonRect = new Rect(nodeRect.x + nodeRect.width - 38, nodeRect.y + 5, 15, 15);
                             if (expandToRootButtonRect.Contains(mouseInGraphSpace))
                             {
-                                ExpandToRoot(node);
+                                ExpandToRoot2(node);
                                 e.Use();
                                 break;
                             }
@@ -337,14 +223,10 @@ namespace HeapExplorer
         {
             Rect nodeRect = new Rect(node.position, node.rect.size);
             
-            // Draw node background
-            Color nodeColor = node.isManaged ? new Color(0.3f, 0.5f, 0.7f) : new Color(0.7f, 0.5f, 0.3f);
-            EditorGUI.DrawRect(nodeRect, nodeColor);
-            
-            // Draw border
+            // Draw background and border
             Rect borderRect = new Rect(nodeRect.x - 1, nodeRect.y - 1, nodeRect.width + 2, nodeRect.height + 2);
             EditorGUI.DrawRect(borderRect, Color.black);
-            EditorGUI.DrawRect(nodeRect, nodeColor);
+            EditorGUI.DrawRect(nodeRect, node.color);
             
             // Draw title
             GUIStyle titleStyle = new GUIStyle(EditorStyles.boldLabel);
@@ -451,30 +333,9 @@ namespace HeapExplorer
                 return;
             
             node.isExpanded = true;
-            
-            // Find all objects that reference this object
-            var referencedBy = new List<PackedConnection>();
-            
-            if (node.isManaged)
-            {
-                foreach (var conn in m_Snapshot.connections)
-                {
-                    if (conn.toKind == PackedConnection.Kind.Managed && conn.to == node.objectIndex)
-                    {
-                        referencedBy.Add(conn);
-                    }
-                }
-            }
-            else
-            {
-                foreach (var conn in m_Snapshot.connections)
-                {
-                    if (conn.toKind == PackedConnection.Kind.Native && conn.to == node.objectIndex)
-                    {
-                        referencedBy.Add(conn);
-                    }
-                }
-            }
+
+            var issues = 0;
+            var referencedBy = RootPathUtility.GetReferencedBy(node.objectProxy, ref issues);
             
             // Create child nodes
             int count = Mathf.Min(referencedBy.Count, MAX_CHILD_NODES);
@@ -485,143 +346,25 @@ namespace HeapExplorer
                 var conn = referencedBy[i];
                 Vector2 childPosition = new Vector2(node.position.x - 250, startY + i * NODE_VERTICAL_SPACING);
                 
-                if (conn.fromKind == PackedConnection.Kind.Managed && conn.from >= 0 && conn.from < m_Snapshot.managedObjects.Length)
-                {
-                    var fromObj = m_Snapshot.managedObjects[conn.from];
-                    AddManagedObjectNode(fromObj, childPosition, node);
-                }
-                else if (conn.fromKind == PackedConnection.Kind.Native && conn.from >= 0 && conn.from < m_Snapshot.nativeObjects.Length)
-                {
-                    var fromObj = m_Snapshot.nativeObjects[conn.from];
-                    AddNativeObjectNode(fromObj, childPosition, node);
-                }
+                AddObjectNode(conn, childPosition, node);
             }
         }
 
-        void ExpandToRoot(GraphNodeData startNode)
+        void ExpandToRoot2(GraphNodeData startNode)
         {
-            // Expand the starting node and continue expanding until we reach a root
-            var currentNodes = new List<GraphNodeData> { startNode };
-            int iterationCount = 0;
-            const int MAX_ITERATIONS = 16; // Safety limit to prevent infinite loops
-            
-            while (currentNodes.Count > 0 && iterationCount < MAX_ITERATIONS)
-            {
-                var nextNodes = new List<GraphNodeData>();
-                
-                foreach (var node in currentNodes)
-                {
-                    // Check if this node is a root
-                    if (IsNodeRoot(node))
-                    {
-                        // This is a root, mark it but don't expand further
-                        continue;
-                    }
-                    
-                    // Expand this node
-                    if (!node.isExpanded)
-                    {
-                        ExpandNode(node);
-                        
-                        // Add the child nodes to the next iteration
-                        foreach (var childId in node.childNodes)
-                        {
-                            if (m_Nodes.TryGetValue(childId, out GraphNodeData childNode))
-                            {
-                                nextNodes.Add(childNode);
-                            }
-                        }
-                    }
-                }
-                
-                currentNodes = nextNodes;
-                iterationCount++;
-            }
+            m_JobRunner(new RootPathNodeJob(m_Snapshot, startNode, this));
         }
-
-        bool IsNodeRoot(GraphNodeData node)
+        
+        public void AddPathNodes(RootPath path)
         {
-            // Check if this node is a root based on connection type
-            // Static fields are roots
-            foreach (var conn in m_Snapshot.connections)
+            // Add nodes from the path starting from the root
+            for (int i = 0; i < path.count ; i++)
             {
-                if (node.isManaged)
-                {
-                    if (conn.toKind == PackedConnection.Kind.Managed && 
-                        conn.to == node.objectIndex && 
-                        conn.fromKind == PackedConnection.Kind.StaticField)
-                    {
-                        return true;
-                    }
-                }
-                else
-                {
-                    if (conn.toKind == PackedConnection.Kind.Native && conn.to == node.objectIndex)
-                    {
-                        // Check if referenced by a static field
-                        if (conn.fromKind == PackedConnection.Kind.StaticField)
-                        {
-                            return true;
-                        }
-                    }
-                }
+                var objProxy = path[i];
+
+                var nodeForObj = m_Nodes[objProxy.GetHashCode()];
+                ExpandNode(nodeForObj);
             }
-            
-            // For native objects, check additional root conditions
-            if (!node.isManaged && node.objectIndex >= 0 && node.objectIndex < m_Snapshot.nativeObjects.Length)
-            {
-                var nativeObj = m_Snapshot.nativeObjects[node.objectIndex];
-                
-                // Check if it's a manager
-                if (nativeObj.isManager)
-                    return true;
-                
-                // Check if it's marked as DontDestroyOnLoad
-                if (nativeObj.isDontDestroyOnLoad)
-                    return true;
-                
-                // Check if it has DontUnloadUnusedAsset flag
-                if ((nativeObj.hideFlags & HideFlags.DontUnloadUnusedAsset) != 0)
-                    return true;
-                
-                // // Check if it's a GameObject or Component (these are scene roots)
-                // var nativeType = m_Snapshot.nativeTypes[nativeObj.nativeTypesArrayIndex];
-                // if (m_Snapshot.coreTypes.nativeGameObject >= 0 && 
-                //     nativeObj.GetType().IsSubclassOf(m_Snapshot.coreTypes.nativeGameObject))
-                //     return true;
-                //
-                // if (m_Snapshot.coreTypes.nativeComponent >= 0 && 
-                //     nativeType.IsSubclassOf(m_Snapshot.coreTypes.nativeComponent))
-                //     return true;
-            }
-            
-            // Check if there are no references to this object (it's a root by isolation)
-            bool hasIncomingReferences = false;
-            foreach (var conn in m_Snapshot.connections)
-            {
-                if (node.isManaged)
-                {
-                    if (conn.toKind == PackedConnection.Kind.Managed && conn.to == node.objectIndex)
-                    {
-                        hasIncomingReferences = true;
-                        break;
-                    }
-                }
-                else
-                {
-                    if (conn.toKind == PackedConnection.Kind.Native && conn.to == node.objectIndex)
-                    {
-                        hasIncomingReferences = true;
-                        break;
-                    }
-                }
-            }
-            
-            // If no incoming references, it's a root
-            if (!hasIncomingReferences)
-                return true;
-            
-            return false;
         }
     }
 }
