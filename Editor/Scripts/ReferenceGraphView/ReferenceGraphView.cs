@@ -220,9 +220,10 @@ namespace HeapExplorer
                 Vector2 mouseInGraphSpace = TransformMouseToGraphSpace(e.mousePosition, rect, m_Zoom);
                 m_HoveredNode = null;
                 
+                // Only track root nodes for tooltip hover
                 foreach (var node in m_Nodes.Values)
                 {
-                    if (node.rect.Contains(mouseInGraphSpace))
+                    if (node.isRoot && node.rect.Contains(mouseInGraphSpace))
                     {
                         m_HoveredNode = node;
                         break;
@@ -388,6 +389,10 @@ namespace HeapExplorer
                 // Create tooltip text with root reason
                 string tooltipText = GetRootReasonDescription(m_HoveredNode.rootReason);
                 
+                // Skip tooltip if no valid root reason
+                if (string.IsNullOrEmpty(tooltipText))
+                    return;
+                
                 // Initialize cached style if needed
                 if (s_TooltipStyle == null)
                 {
@@ -429,7 +434,8 @@ namespace HeapExplorer
             switch (reason)
             {
                 case RootPathReason.None:
-                    return "Root: Not a Root Node";
+                    // This should not happen for root nodes, but return null to skip tooltip
+                    return null;
                 case RootPathReason.Static:
                     return "Root: Static Field";
                 case RootPathReason.UnityManager:
