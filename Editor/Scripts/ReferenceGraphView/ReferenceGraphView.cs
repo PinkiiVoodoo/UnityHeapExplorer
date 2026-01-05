@@ -162,9 +162,9 @@ namespace HeapExplorer
                 
                 foreach (var node in m_Nodes.Values)
                 {
-                    // Check if mouse is within circle radius
-                    float distance = Vector2.Distance(mouseInGraphSpace, node.position);
-                    if (distance <= node.radius)
+                    // Check if mouse is within circle radius (using sqrMagnitude for performance)
+                    float sqrDistance = (mouseInGraphSpace - node.position).sqrMagnitude;
+                    if (sqrDistance <= node.radius * node.radius)
                     {
                         m_HoveredNode = node;
                         break;
@@ -204,9 +204,10 @@ namespace HeapExplorer
                 
                 foreach (var node in m_Nodes.Values)
                 {
-                    float distance = Vector2.Distance(mouseInGraphSpace, node.position);
+                    // Use sqrMagnitude for performance
+                    float sqrDistance = (mouseInGraphSpace - node.position).sqrMagnitude;
                     
-                    if (distance <= node.radius)
+                    if (sqrDistance <= node.radius * node.radius)
                     {
                         // Check if clicking the expand to root button
                         if (!node.isExpanded)
