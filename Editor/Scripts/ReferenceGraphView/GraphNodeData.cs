@@ -5,6 +5,8 @@ namespace HeapExplorer
 {
     public class GraphNodeData : IEqualityComparer<GraphNodeData>
     {
+        const int Radius = 45;
+        
         public readonly string title;
         public readonly string subtitle;
         public readonly Color color;
@@ -19,8 +21,19 @@ namespace HeapExplorer
 
         public HashSet<int> childNodes = new HashSet<int>();
 
-        public Vector2 position;
+        Vector2 position;
+        public Vector2 Position
+        {
+            get => position;
+            set
+            {
+                position = value;
+                rect.position = position - new Vector2(radius, radius);
+            }
+        }
+
         public Rect rect;
+        public float radius;
         public bool isExpanded;
 
         public GraphNodeData(Vector2 position, ObjectProxy objectProxy)
@@ -31,7 +44,8 @@ namespace HeapExplorer
             isRoot = RootPathUtility.IsRoot(objectProxy, out rootReason);
             isEmptyShellObject = IsEmptyShellObject();
             
-            rect = new Rect(position, new Vector2(200, 80));
+            radius = Radius;
+            rect = new Rect(position - new Vector2(radius, radius), new Vector2(radius * 2, radius * 2));
             isExpanded = false;
 
             title = CreateTitle(objectProxy);
