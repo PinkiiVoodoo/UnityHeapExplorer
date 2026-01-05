@@ -26,6 +26,14 @@ namespace HeapExplorer
         Vector2 m_PanStart;
         GraphNodeData m_DraggingNode = null;
         Vector2 m_DragOffset;
+        
+        // Auto-arrange force-directed layout
+        bool m_AutoArrange = false;
+        const float REPULSION_STRENGTH = 10000f;
+        const float ATTRACTION_STRENGTH = 0.1f;
+        const float DAMPING = 0.85f;
+        const float MIN_DISTANCE = 1f;
+        Dictionary<int, Vector2> m_Velocities = new Dictionary<int, Vector2>();
 
         public ReferenceGraphViewIMGUI(PackedMemorySnapshot snapshot, Action<AbstractThreadJob> jobRunner)
         {
@@ -36,6 +44,13 @@ namespace HeapExplorer
         public void Clear()
         {
             m_Nodes.Clear();
+            m_Velocities.Clear();
+        }
+        
+        public bool AutoArrange
+        {
+            get { return m_AutoArrange; }
+            set { m_AutoArrange = value; }
         }
 
         public void ShowObject(ObjectProxy obj, Vector2 position)
@@ -94,6 +109,12 @@ namespace HeapExplorer
             Matrix4x4 originalMatrix = GUI.matrix;
             Vector2 pivot = graphArea.size * 0.5f;
             GUIUtility.ScaleAroundPivot(Vector2.one * m_Zoom, pivot);
+            
+            // Apply auto-arrange force-directed layout
+            if (m_AutoArrange && m_DraggingNode == null)
+            {
+                ApplyForceDirectedLayout();
+            }
             
             // Handle events
             HandleEvents(graphArea);
@@ -189,6 +210,8 @@ namespace HeapExplorer
                         // Start dragging the node
                         m_DraggingNode = node;
                         m_DragOffset = mouseInGraphSpace - node.position;
+                        // Disable auto-arrange when user manually positions a node
+                        m_AutoArrange = false;
                         e.Use();
                         break;
                     }
@@ -343,8 +366,78 @@ namespace HeapExplorer
             style.normal.textColor = Color.white;
             style.fontSize = 10;
             
-            Rect instructionRect = new Rect(rect.x + 5, rect.y + 5, 350, 75);
-            GUI.Label(instructionRect, "Click [+]: Expand one level\nClick [R]: Expand to root\nDrag: Move node\nMiddle-click drag: Pan view\nScroll: Zoom", style);
+            string instructions = m_AutoArrange 
+                ? "Auto-arrange enabled\nClick [+]: Expand one level\nClick [R]: Expand to root\nDrag: Move node (disables auto-arrange)\nMiddle-click drag: Pan view\nScroll: Zoom"
+                : "Click [+]: Expand one level\nClick [R]: Expand to root\nDrag: Move node\nMiddle-click drag: Pan view\nScroll: Zoom";
+            
+            Rect instructionRect = new Rect(rect.x + 5, rect.y + 5, 350, 90);
+            GUI.Label(instructionRect, instructions, style);
+        }
+        
+        void ApplyForceDirectedLayout()
+        {
+            if (m_Nodes.Count <= 1)
+                return;
+
+            // Calculate forces for each node
+            foreach (var nodeEntry in m_Nodes)
+            {
+                var node = nodeEntry.Value;
+                var nodeId = nodeEntry.Key;
+                
+                if (!m_Velocities.ContainsKey(nodeId))
+                {
+                    m_Velocities[nodeId] = Vector2.zero;
+                }
+                
+                Vector2 force = Vector2.zero;
+                
+                // Repulsion between all nodes
+                foreach (var otherEntry in m_Nodes)
+                {
+                    if (nodeEntry.Key == otherEntry.Key)
+                        continue;
+                    
+                    var other = otherEntry.Value;
+                    Vector2 delta = node.position - other.position;
+                    float distance = delta.magnitude;
+                    
+                    if (distance < MIN_DISTANCE)
+                        distance = MIN_DISTANCE;
+                    
+                    // Coulomb's law for repulsion
+                    force += delta.normalized * (REPULSION_STRENGTH / (distance * distance));
+                }
+                
+                // Attraction along edges (connections)
+                foreach (var childId in node.childNodes)
+                {
+                    if (m_Nodes.TryGetValue(childId, out GraphNodeData child))
+                    {
+                        Vector2 delta = child.position - node.position;
+                        float distance = delta.magnitude;
+                        
+                        // Hooke's law for spring attraction
+                        force += delta.normalized * distance * ATTRACTION_STRENGTH;
+                    }
+                }
+                
+                // Update velocity with damping
+                m_Velocities[nodeId] = (m_Velocities[nodeId] + force * 0.01f) * DAMPING;
+            }
+            
+            // Apply velocities to positions
+            foreach (var nodeEntry in m_Nodes)
+            {
+                var node = nodeEntry.Value;
+                var nodeId = nodeEntry.Key;
+                
+                if (m_Velocities.TryGetValue(nodeId, out Vector2 velocity))
+                {
+                    node.position += velocity;
+                    node.rect = new Rect(node.position, node.rect.size);
+                }
+            }
         }
         
         void ExpandNode(GraphNodeData node)

@@ -60,6 +60,16 @@ namespace HeapExplorer
                             m_GraphView.Clear();
                         }
                     }
+                    
+                    // Auto-arrange checkbox
+                    if (m_GraphView != null)
+                    {
+                        bool newAutoArrange = EditorGUILayout.Toggle("Auto-arrange", m_GraphView.AutoArrange, GUILayout.Width(120));
+                        if (newAutoArrange != m_GraphView.AutoArrange)
+                        {
+                            m_GraphView.AutoArrange = newAutoArrange;
+                        }
+                    }
 
                     GUILayout.FlexibleSpace();
 
