@@ -420,11 +420,22 @@ namespace HeapExplorer
                     Vector2 delta = node1.position - node2.position;
                     float distanceSq = delta.sqrMagnitude;
                     
-                    // Avoid division by zero
+                    // Avoid division by zero - clamp to minimum distance
                     if (distanceSq < MIN_DISTANCE * MIN_DISTANCE)
+                    {
                         distanceSq = MIN_DISTANCE * MIN_DISTANCE;
+                        // When very close, use normalized delta if it's valid, otherwise use a default direction
+                        if (delta.sqrMagnitude > 0.0001f)
+                        {
+                            delta = delta.normalized * MIN_DISTANCE;
+                        }
+                        else
+                        {
+                            // Nodes are at the same position, push them apart in a random direction
+                            delta = new Vector2(1, 0) * MIN_DISTANCE;
+                        }
+                    }
                     
-                    // Use normalized delta directly - Unity handles the normalization efficiently
                     Vector2 direction = delta.normalized;
                     
                     // Coulomb's law for repulsion - apply equal and opposite forces
@@ -459,9 +470,9 @@ namespace HeapExplorer
                         if (distanceSq < MIN_DISTANCE * MIN_DISTANCE)
                             continue;
                         
-                        // Use normalized delta directly - Unity handles the normalization efficiently
-                        Vector2 direction = delta.normalized;
+                        // Calculate distance and direction efficiently
                         float distance = Mathf.Sqrt(distanceSq);
+                        Vector2 direction = delta / distance;
                         
                         // Hooke's law for spring attraction - apply equal and opposite forces
                         Vector2 attractionForce = direction * distance * ATTRACTION_STRENGTH;
