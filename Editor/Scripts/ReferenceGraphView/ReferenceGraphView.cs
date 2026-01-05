@@ -34,7 +34,6 @@ namespace HeapExplorer
         const float DAMPING = 0.85f;
         const float MIN_DISTANCE = 1f;
         const float FORCE_SCALE = 0.01f;
-        const float VELOCITY_THRESHOLD = 0.01f;
         const float ZERO_DISTANCE_THRESHOLD = 0.0001f;
         Dictionary<int, Vector2> m_Velocities = new Dictionary<int, Vector2>();
         Dictionary<int, Vector2> m_Forces = new Dictionary<int, Vector2>();
@@ -436,7 +435,7 @@ namespace HeapExplorer
                         {
                             // Nodes are at the same position, use a deterministic fallback direction
                             // based on node IDs to ensure consistent behavior
-                            int hash = (m_NodeList[i].Key ^ m_NodeList[j].Key);
+                            int hash = Mathf.Abs(m_NodeList[i].Key ^ m_NodeList[j].Key);
                             float angle = (hash % 360) * Mathf.Deg2Rad;
                             direction = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
                         }
