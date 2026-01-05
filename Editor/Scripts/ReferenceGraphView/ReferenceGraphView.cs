@@ -36,6 +36,7 @@ namespace HeapExplorer
         const float FORCE_SCALE = 0.01f;
         const float VELOCITY_THRESHOLD = 0.01f;
         Dictionary<int, Vector2> m_Velocities = new Dictionary<int, Vector2>();
+        Dictionary<int, Vector2> m_Forces = new Dictionary<int, Vector2>();
 
         public ReferenceGraphViewIMGUI(PackedMemorySnapshot snapshot, Action<AbstractThreadJob> jobRunner)
         {
@@ -47,6 +48,7 @@ namespace HeapExplorer
         {
             m_Nodes.Clear();
             m_Velocities.Clear();
+            m_Forces.Clear();
         }
         
         public bool AutoArrange
@@ -383,13 +385,16 @@ namespace HeapExplorer
             if (m_Nodes.Count <= 1)
                 return;
 
-            // Calculate forces for each node
-            Dictionary<int, Vector2> forces = new Dictionary<int, Vector2>();
+            // Initialize forces and velocities
+            // Note: This algorithm has O(n²) complexity for repulsion calculations.
+            // For typical HeapExplorer usage with small graphs (10-50 nodes), this is acceptable.
+            // For large graphs (>100 nodes), consider spatial partitioning optimizations.
+            m_Forces.Clear();
             
             foreach (var nodeEntry in m_Nodes)
             {
                 var nodeId = nodeEntry.Key;
-                forces[nodeId] = Vector2.zero;
+                m_Forces[nodeId] = Vector2.zero;
                 
                 if (!m_Velocities.ContainsKey(nodeId))
                 {
@@ -418,8 +423,8 @@ namespace HeapExplorer
                     
                     // Coulomb's law for repulsion - apply equal and opposite forces
                     Vector2 repulsionForce = direction * (REPULSION_STRENGTH / distanceSq);
-                    forces[nodeList[i].Key] += repulsionForce;
-                    forces[nodeList[j].Key] -= repulsionForce;
+                    m_Forces[nodeList[i].Key] += repulsionForce;
+                    m_Forces[nodeList[j].Key] -= repulsionForce;
                 }
             }
             
@@ -453,8 +458,8 @@ namespace HeapExplorer
                         
                         // Hooke's law for spring attraction - apply equal and opposite forces
                         Vector2 attractionForce = direction * distance * ATTRACTION_STRENGTH;
-                        forces[nodeId] += attractionForce;
-                        forces[childId] -= attractionForce;
+                        m_Forces[nodeId] += attractionForce;
+                        m_Forces[childId] -= attractionForce;
                     }
                 }
             }
@@ -466,7 +471,7 @@ namespace HeapExplorer
                 var nodeId = nodeEntry.Key;
                 
                 // Update velocity with damping
-                m_Velocities[nodeId] = (m_Velocities[nodeId] + forces[nodeId] * FORCE_SCALE) * DAMPING;
+                m_Velocities[nodeId] = (m_Velocities[nodeId] + m_Forces[nodeId] * FORCE_SCALE) * DAMPING;
                 
                 // Apply velocity to position
                 node.position += m_Velocities[nodeId];
