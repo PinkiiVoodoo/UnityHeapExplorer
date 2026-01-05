@@ -34,6 +34,7 @@ namespace HeapExplorer
         const float DAMPING = 0.85f;
         const float MIN_DISTANCE = 1f;
         const float FORCE_SCALE = 0.01f;
+        const float VELOCITY_THRESHOLD = 0.01f;
         Dictionary<int, Vector2> m_Velocities = new Dictionary<int, Vector2>();
 
         public ReferenceGraphViewIMGUI(PackedMemorySnapshot snapshot, Action<AbstractThreadJob> jobRunner)
@@ -458,10 +459,7 @@ namespace HeapExplorer
                 }
             }
             
-            // Update velocities and positions with convergence check
-            const float VELOCITY_THRESHOLD = 0.01f;
-            bool anySignificantMovement = false;
-            
+            // Update velocities and positions
             foreach (var nodeEntry in m_Nodes)
             {
                 var node = nodeEntry.Value;
@@ -470,19 +468,10 @@ namespace HeapExplorer
                 // Update velocity with damping
                 m_Velocities[nodeId] = (m_Velocities[nodeId] + forces[nodeId] * FORCE_SCALE) * DAMPING;
                 
-                // Check if there's significant movement
-                if (m_Velocities[nodeId].sqrMagnitude > VELOCITY_THRESHOLD * VELOCITY_THRESHOLD)
-                {
-                    anySignificantMovement = true;
-                }
-                
                 // Apply velocity to position
                 node.position += m_Velocities[nodeId];
                 node.rect = new Rect(node.position, node.rect.size);
             }
-            
-            // If no significant movement, we could potentially stop the simulation
-            // For now, we keep it running as it's relatively cheap for small graphs
         }
         
         void ExpandNode(GraphNodeData node)
