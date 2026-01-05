@@ -15,6 +15,9 @@ namespace HeapExplorer
     public class ReferenceGraphViewIMGUI
     {
         const float NODE_VERTICAL_SPACING = 120f; // Vertical spacing between child nodes
+        const float INSPECTOR_WIDTH = 250f;
+        const float INSPECTOR_HEIGHT = 100f;
+        const float INSPECTOR_OFFSET = 10f;
 
         readonly PackedMemorySnapshot m_Snapshot;
         readonly Action<AbstractThreadJob> m_JobRunner;
@@ -39,6 +42,13 @@ namespace HeapExplorer
         {
             Vector2 pivot = graphArea.size * 0.5f;
             return (screenPos - pivot) / m_Zoom + pivot;
+        }
+        
+        // Transform position from graph space to screen space accounting for zoom
+        Vector2 GraphToScreenSpace(Vector2 graphPos, Rect graphArea)
+        {
+            Vector2 pivot = graphArea.size * 0.5f;
+            return (graphPos - pivot) * m_Zoom + pivot;
         }
 
         public void Clear()
@@ -391,34 +401,30 @@ namespace HeapExplorer
         
         void DrawHoverInspector(GraphNodeData node, Rect graphArea)
         {
-            float inspectorWidth = 250f;
-            float inspectorHeight = 100f;
-            
             // Transform node position from graph space to screen space (accounting for zoom)
-            Vector2 pivot = graphArea.size * 0.5f;
-            Vector2 screenNodePos = (node.position - pivot) * m_Zoom + pivot;
+            Vector2 screenNodePos = GraphToScreenSpace(node.position, graphArea);
             float screenRadius = node.radius * m_Zoom;
             
             // Position the inspector near the node but offset to not overlap
-            Vector2 inspectorPos = screenNodePos + new Vector2(screenRadius + 10, -screenRadius);
+            Vector2 inspectorPos = screenNodePos + new Vector2(screenRadius + INSPECTOR_OFFSET, -screenRadius);
             
             // Ensure inspector stays within graph area bounds
-            if (inspectorPos.x + inspectorWidth > graphArea.width)
+            if (inspectorPos.x + INSPECTOR_WIDTH > graphArea.width)
             {
                 // Position to the left of the node instead
-                inspectorPos.x = screenNodePos.x - screenRadius - inspectorWidth - 10;
+                inspectorPos.x = screenNodePos.x - screenRadius - INSPECTOR_WIDTH - INSPECTOR_OFFSET;
             }
             
             if (inspectorPos.y < 0)
             {
                 inspectorPos.y = 0;
             }
-            else if (inspectorPos.y + inspectorHeight > graphArea.height)
+            else if (inspectorPos.y + INSPECTOR_HEIGHT > graphArea.height)
             {
-                inspectorPos.y = graphArea.height - inspectorHeight;
+                inspectorPos.y = graphArea.height - INSPECTOR_HEIGHT;
             }
             
-            Rect inspectorRect = new Rect(inspectorPos.x, inspectorPos.y, inspectorWidth, inspectorHeight);
+            Rect inspectorRect = new Rect(inspectorPos.x, inspectorPos.y, INSPECTOR_WIDTH, INSPECTOR_HEIGHT);
             
             // Draw background with node color
             Rect backgroundRect = new Rect(inspectorRect.x - 1, inspectorRect.y - 1, inspectorRect.width + 2, inspectorRect.height + 2);
