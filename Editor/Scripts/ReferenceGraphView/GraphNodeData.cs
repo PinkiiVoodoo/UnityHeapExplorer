@@ -140,7 +140,7 @@ namespace HeapExplorer
 
         public bool CanExpandToRoot()
         {
-            return paths.scanned == 0 || pathIndex < paths.count;
+            return !isRoot && (paths.scanned == 0 || pathIndex < paths.count);
         }
     }
 }
