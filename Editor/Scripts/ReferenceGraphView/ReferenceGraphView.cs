@@ -234,6 +234,12 @@ namespace HeapExplorer
                 EditorGUI.DrawRect(glowRect2, new Color(1.0f, 0.9f, 0.3f, 0.9f)); // Lighter gold
             }
             
+            if (node.isEmptyShellObject)
+            {
+                Rect glowRect2 = new Rect(nodeRect.x - 2, nodeRect.y - 2, nodeRect.width + 4, nodeRect.height + 4);
+                EditorGUI.DrawRect(glowRect2, new Color(1.0f, 0.3f, 0.3f, 0.9f)); // Lighter gold
+            }
+            
             // Draw background and border
             Rect borderRect = new Rect(nodeRect.x - 1, nodeRect.y - 1, nodeRect.width + 2, nodeRect.height + 2);
             EditorGUI.DrawRect(borderRect, Color.black);

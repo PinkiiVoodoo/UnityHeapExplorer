@@ -15,6 +15,7 @@ namespace HeapExplorer
 
         public readonly RootPathReason rootReason;
         public readonly bool isRoot;
+        public readonly bool isEmptyShellObject;
 
         public HashSet<int> childNodes = new HashSet<int>();
 
@@ -28,6 +29,7 @@ namespace HeapExplorer
             this.objectProxy = objectProxy;
 
             isRoot = RootPathUtility.IsRoot(objectProxy, out rootReason);
+            isEmptyShellObject = IsEmptyShellObject();
             
             rect = new Rect(position, new Vector2(200, 80));
             isExpanded = false;
@@ -141,6 +143,32 @@ namespace HeapExplorer
         public bool CanExpandToRoot()
         {
             return !isRoot && (paths.scanned == 0 || pathIndex < paths.count);
+        }
+        
+        bool IsEmptyShellObject()
+        {
+            if (!objectProxy.managed.isValid) 
+                return false;
+            
+            var obj = objectProxy.managed;
+            if (obj.address == 0)
+                return false; // points to null
+
+            if (obj.nativeObject.isValid)
+                return false; // has a native object, thus can't be an empty shell object 
+
+            var richType = obj.type;
+            var type = richType.packed;
+
+            // Only UnityEngine.Object objects can have a m_CachedPtr connection to a native object.
+            if (!type.isUnityEngineObject)
+                return false;
+
+            // Could be an array of an UnityEngine.Object, such as Texture[]
+            if (type.isArray)
+                return false;
+                
+            return true;
         }
     }
 }
