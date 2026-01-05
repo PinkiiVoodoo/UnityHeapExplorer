@@ -57,7 +57,7 @@ namespace HeapExplorer
         {
             if (proxy.managed.isValid)
             {
-                return proxy.managed.type.name;
+                return proxy.managed.type.name.Replace('.', ' ');
             }
 
             if (proxy.native.isValid)
