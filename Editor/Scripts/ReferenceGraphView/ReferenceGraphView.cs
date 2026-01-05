@@ -37,6 +37,8 @@ namespace HeapExplorer
         const float VELOCITY_THRESHOLD = 0.01f;
         Dictionary<int, Vector2> m_Velocities = new Dictionary<int, Vector2>();
         Dictionary<int, Vector2> m_Forces = new Dictionary<int, Vector2>();
+        List<KeyValuePair<int, GraphNodeData>> m_NodeList = new List<KeyValuePair<int, GraphNodeData>>();
+        HashSet<(int, int)> m_ProcessedEdges = new HashSet<(int, int)>();
 
         public ReferenceGraphViewIMGUI(PackedMemorySnapshot snapshot, Action<AbstractThreadJob> jobRunner)
         {
@@ -49,6 +51,8 @@ namespace HeapExplorer
             m_Nodes.Clear();
             m_Velocities.Clear();
             m_Forces.Clear();
+            m_NodeList.Clear();
+            m_ProcessedEdges.Clear();
         }
         
         public bool AutoArrange
@@ -403,33 +407,35 @@ namespace HeapExplorer
             }
             
             // Calculate repulsion forces between all pairs of nodes
-            var nodeList = new List<KeyValuePair<int, GraphNodeData>>(m_Nodes);
-            for (int i = 0; i < nodeList.Count; i++)
+            m_NodeList.Clear();
+            m_NodeList.AddRange(m_Nodes);
+            
+            for (int i = 0; i < m_NodeList.Count; i++)
             {
-                for (int j = i + 1; j < nodeList.Count; j++)
+                for (int j = i + 1; j < m_NodeList.Count; j++)
                 {
-                    var node1 = nodeList[i].Value;
-                    var node2 = nodeList[j].Value;
+                    var node1 = m_NodeList[i].Value;
+                    var node2 = m_NodeList[j].Value;
                     
                     Vector2 delta = node1.position - node2.position;
                     float distanceSq = delta.sqrMagnitude;
                     
-                    // Avoid division by zero and use squared distance for efficiency
+                    // Avoid division by zero
                     if (distanceSq < MIN_DISTANCE * MIN_DISTANCE)
                         distanceSq = MIN_DISTANCE * MIN_DISTANCE;
                     
-                    float distance = Mathf.Sqrt(distanceSq);
-                    Vector2 direction = delta / distance; // Normalized direction
+                    // Use normalized delta directly - Unity handles the normalization efficiently
+                    Vector2 direction = delta.normalized;
                     
                     // Coulomb's law for repulsion - apply equal and opposite forces
                     Vector2 repulsionForce = direction * (REPULSION_STRENGTH / distanceSq);
-                    m_Forces[nodeList[i].Key] += repulsionForce;
-                    m_Forces[nodeList[j].Key] -= repulsionForce;
+                    m_Forces[m_NodeList[i].Key] += repulsionForce;
+                    m_Forces[m_NodeList[j].Key] -= repulsionForce;
                 }
             }
             
             // Calculate attraction forces along edges (bidirectional)
-            HashSet<(int, int)> processedEdges = new HashSet<(int, int)>();
+            m_ProcessedEdges.Clear();
             
             foreach (var nodeEntry in m_Nodes)
             {
@@ -439,10 +445,10 @@ namespace HeapExplorer
                 foreach (var childId in node.childNodes)
                 {
                     // Skip if we've already processed this edge in the opposite direction
-                    if (processedEdges.Contains((childId, nodeId)))
+                    if (m_ProcessedEdges.Contains((childId, nodeId)))
                         continue;
                     
-                    processedEdges.Add((nodeId, childId));
+                    m_ProcessedEdges.Add((nodeId, childId));
                     
                     if (m_Nodes.TryGetValue(childId, out GraphNodeData child))
                     {
@@ -453,8 +459,9 @@ namespace HeapExplorer
                         if (distanceSq < MIN_DISTANCE * MIN_DISTANCE)
                             continue;
                         
+                        // Use normalized delta directly - Unity handles the normalization efficiently
+                        Vector2 direction = delta.normalized;
                         float distance = Mathf.Sqrt(distanceSq);
-                        Vector2 direction = delta / distance; // Normalized direction
                         
                         // Hooke's law for spring attraction - apply equal and opposite forces
                         Vector2 attractionForce = direction * distance * ATTRACTION_STRENGTH;
