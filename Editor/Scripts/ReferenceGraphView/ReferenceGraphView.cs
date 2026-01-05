@@ -53,8 +53,8 @@ namespace HeapExplorer
         void AddObjectNode(ObjectProxy obj, GraphNodeData parent)
         {
             Vector2 position = new Vector2(
-                parent.position.x - 250,
-                parent.position.y + parent.childNodes.Count * NODE_VERTICAL_SPACING);
+                parent.Position.x - NODE_VERTICAL_SPACING,
+                parent.Position.y + parent.childNodes.Count * NODE_VERTICAL_SPACING);
             AddObjectNode(obj, position, parent);
         }
         
@@ -145,7 +145,7 @@ namespace HeapExplorer
                 foreach (var node in m_Nodes.Values)
                 {
                     // Check if mouse is within circle radius
-                    float distance = Vector2.Distance(mouseInGraphSpace, node.position);
+                    float distance = Vector2.Distance(mouseInGraphSpace, node.Position);
                     if (distance <= node.radius)
                     {
                         m_HoveredNode = node;
@@ -171,8 +171,7 @@ namespace HeapExplorer
                 Vector2 delta = e.mousePosition - m_PanStart;
                 foreach (var node in m_Nodes.Values)
                 {
-                    node.position += delta / m_Zoom;
-                    node.rect = new Rect(node.position - new Vector2(node.radius, node.radius), new Vector2(node.radius * 2, node.radius * 2));
+                    node.Position += delta / m_Zoom;
                 }
                 m_PanStart = e.mousePosition;
                 e.Use();
@@ -186,7 +185,7 @@ namespace HeapExplorer
                 
                 foreach (var node in m_Nodes.Values)
                 {
-                    float distance = Vector2.Distance(mouseInGraphSpace, node.position);
+                    float distance = Vector2.Distance(mouseInGraphSpace, node.Position);
                     
                     if (distance <= node.radius)
                     {
@@ -194,7 +193,7 @@ namespace HeapExplorer
                         if (!node.isExpanded)
                         {
                             // Buttons are positioned at the top right of the circle
-                            Vector2 buttonBasePos = node.position + new Vector2(node.radius - 38, -node.radius + 5);
+                            Vector2 buttonBasePos = node.Position + new Vector2(node.radius - 38, -node.radius + 5);
                             Rect expandToRootButtonRect = new Rect(buttonBasePos.x, buttonBasePos.y, 15, 15);
                             if (node.CanExpandToRoot() && expandToRootButtonRect.Contains(mouseInGraphSpace))
                             {
@@ -204,7 +203,7 @@ namespace HeapExplorer
                             }
                             
                             // Check if clicking the expand button
-                            Vector2 expandButtonPos = node.position + new Vector2(node.radius - 20, -node.radius + 5);
+                            Vector2 expandButtonPos = node.Position + new Vector2(node.radius - 20, -node.radius + 5);
                             Rect expandButtonRect = new Rect(expandButtonPos.x, expandButtonPos.y, 15, 15);
                             if (expandButtonRect.Contains(mouseInGraphSpace))
                             {
@@ -216,7 +215,7 @@ namespace HeapExplorer
                         
                         // Start dragging the node
                         m_DraggingNode = node;
-                        m_DragOffset = mouseInGraphSpace - node.position;
+                        m_DragOffset = mouseInGraphSpace - node.Position;
                         e.Use();
                         break;
                     }
@@ -229,8 +228,7 @@ namespace HeapExplorer
                 
                 // Update node position during drag
                 Vector2 newPosition = mouseInGraphSpace - m_DragOffset;
-                m_DraggingNode.position = newPosition;
-                m_DraggingNode.rect = new Rect(newPosition - new Vector2(m_DraggingNode.radius, m_DraggingNode.radius), new Vector2(m_DraggingNode.radius * 2, m_DraggingNode.radius * 2));
+                m_DraggingNode.Position = newPosition;
                 e.Use();
             }
             else if (e.type == EventType.MouseUp && e.button == 0)
@@ -259,25 +257,25 @@ namespace HeapExplorer
             {
                 // Draw outer golden glow for root nodes
                 Handles.color = new Color(1.0f, 0.84f, 0.0f, 0.8f); // Gold
-                Handles.DrawSolidDisc(node.position, Vector3.forward, node.radius + 3);
+                Handles.DrawSolidDisc(node.Position, Vector3.forward, node.radius + 3);
                 
                 Handles.color = new Color(1.0f, 0.9f, 0.3f, 0.9f); // Lighter gold
-                Handles.DrawSolidDisc(node.position, Vector3.forward, node.radius + 2);
+                Handles.DrawSolidDisc(node.Position, Vector3.forward, node.radius + 2);
             }
             
             if (node.isEmptyShellObject)
             {
                 Handles.color = new Color(1.0f, 0.3f, 0.3f, 0.9f); // Red warning
-                Handles.DrawSolidDisc(node.position, Vector3.forward, node.radius + 2);
+                Handles.DrawSolidDisc(node.Position, Vector3.forward, node.radius + 2);
             }
             
             // Draw border (black circle)
             Handles.color = Color.black;
-            Handles.DrawSolidDisc(node.position, Vector3.forward, node.radius + 1);
+            Handles.DrawSolidDisc(node.Position, Vector3.forward, node.radius + 1);
             
             // Draw node background
             Handles.color = node.color;
-            Handles.DrawSolidDisc(node.position, Vector3.forward, node.radius);
+            Handles.DrawSolidDisc(node.Position, Vector3.forward, node.radius);
             
             Handles.EndGUI();
             
@@ -289,7 +287,7 @@ namespace HeapExplorer
             titleStyle.fontSize = 11;
             
             // Title area is centered in the circle
-            Rect titleRect = new Rect(node.position.x - node.radius + 5, node.position.y - 10, node.radius * 2 - 10, 20);
+            Rect titleRect = nodeRect;
             GUI.Label(titleRect, node.title, titleStyle);
             
             // Draw expand buttons if not expanded
@@ -298,7 +296,7 @@ namespace HeapExplorer
                 if (node.CanExpandToRoot())
                 {
                     // Draw expand to root button (left button with "R")
-                    Vector2 expandToRootPos = node.position + new Vector2(node.radius - 38, -node.radius + 5);
+                    Vector2 expandToRootPos = node.Position + new Vector2(node.radius - 38, -node.radius + 5);
                     Rect expandToRootButtonRect = new Rect(expandToRootPos.x, expandToRootPos.y, 15, 15);
                     
                     // Draw button background
@@ -318,7 +316,7 @@ namespace HeapExplorer
                 }
                 
                 // Draw expand one level button (right button with "+")
-                Vector2 expandPos = node.position + new Vector2(node.radius - 20, -node.radius + 5);
+                Vector2 expandPos = node.Position + new Vector2(node.radius - 20, -node.radius + 5);
                 Rect expandButtonRect = new Rect(expandPos.x, expandPos.y, 15, 15);
                 
                 // Draw button background
@@ -350,13 +348,13 @@ namespace HeapExplorer
                     if (m_Nodes.TryGetValue(childId, out GraphNodeData childNode))
                     {
                         // Calculate the direction from parent to child
-                        Vector2 direction = (childNode.position - node.position).normalized;
+                        Vector2 direction = (childNode.Position - node.Position).normalized;
                         
                         // Start point is at the edge of parent circle in the direction of child
-                        Vector2 start = node.position + direction * node.radius;
+                        Vector2 start = node.Position + direction * node.radius;
                         
                         // End point is at the edge of child circle in the direction of parent
-                        Vector2 end = childNode.position - direction * childNode.radius;
+                        Vector2 end = childNode.Position - direction * childNode.radius;
                         
                         Handles.DrawAAPolyLine(3f, start, end);
                         
@@ -384,7 +382,7 @@ namespace HeapExplorer
         void DrawHoverInspector(GraphNodeData node)
         {
             // Position the inspector near the node but offset to not overlap
-            Vector2 inspectorPos = node.position + new Vector2(node.radius + 10, -node.radius);
+            Vector2 inspectorPos = node.Position + new Vector2(node.radius + 10, -node.radius);
             float inspectorWidth = 250f;
             float inspectorHeight = 100f;
             
