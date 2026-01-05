@@ -422,26 +422,25 @@ namespace HeapExplorer
                     
                     Vector2 direction;
                     
-                    // Avoid division by zero - clamp to minimum distance
-                    if (distanceSq < MIN_DISTANCE * MIN_DISTANCE)
+                    // Handle very close or overlapping nodes
+                    if (distanceSq < ZERO_DISTANCE_THRESHOLD)
                     {
+                        // Nodes are essentially at the same position, use a deterministic fallback direction
+                        // based on node IDs to ensure consistent behavior
+                        int hash = Mathf.Abs(m_NodeList[i].Key ^ m_NodeList[j].Key);
+                        float angle = (hash % 360) * Mathf.Deg2Rad;
+                        direction = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
                         distanceSq = MIN_DISTANCE * MIN_DISTANCE;
-                        // When very close, determine a valid direction
-                        if (delta.sqrMagnitude > ZERO_DISTANCE_THRESHOLD)
-                        {
-                            direction = delta.normalized;
-                        }
-                        else
-                        {
-                            // Nodes are at the same position, use a deterministic fallback direction
-                            // based on node IDs to ensure consistent behavior
-                            int hash = Mathf.Abs(m_NodeList[i].Key ^ m_NodeList[j].Key);
-                            float angle = (hash % 360) * Mathf.Deg2Rad;
-                            direction = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
-                        }
+                    }
+                    else if (distanceSq < MIN_DISTANCE * MIN_DISTANCE)
+                    {
+                        // Nodes are close but not overlapping, use actual direction but clamp distance
+                        direction = delta.normalized;
+                        distanceSq = MIN_DISTANCE * MIN_DISTANCE;
                     }
                     else
                     {
+                        // Normal case - nodes are far enough apart
                         direction = delta.normalized;
                     }
                     
@@ -473,7 +472,8 @@ namespace HeapExplorer
                         Vector2 delta = child.position - node.position;
                         float distanceSq = delta.sqrMagnitude;
                         
-                        // Avoid division by zero
+                        // Skip attraction force when nodes are too close to avoid division by zero
+                        // and because repulsion forces will dominate anyway at close range
                         if (distanceSq < MIN_DISTANCE * MIN_DISTANCE)
                             continue;
                         
