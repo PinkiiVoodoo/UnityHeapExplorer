@@ -383,64 +383,106 @@ namespace HeapExplorer
                 return;
 
             // Calculate forces for each node
+            Dictionary<int, Vector2> forces = new Dictionary<int, Vector2>();
+            
             foreach (var nodeEntry in m_Nodes)
             {
-                var node = nodeEntry.Value;
                 var nodeId = nodeEntry.Key;
+                forces[nodeId] = Vector2.zero;
                 
                 if (!m_Velocities.ContainsKey(nodeId))
                 {
                     m_Velocities[nodeId] = Vector2.zero;
                 }
-                
-                Vector2 force = Vector2.zero;
-                
-                // Repulsion between all nodes
-                foreach (var otherEntry in m_Nodes)
-                {
-                    if (nodeEntry.Key == otherEntry.Key)
-                        continue;
-                    
-                    var other = otherEntry.Value;
-                    Vector2 delta = node.position - other.position;
-                    float distance = delta.magnitude;
-                    
-                    if (distance < MIN_DISTANCE)
-                        distance = MIN_DISTANCE;
-                    
-                    // Coulomb's law for repulsion
-                    force += delta.normalized * (REPULSION_STRENGTH / (distance * distance));
-                }
-                
-                // Attraction along edges (connections)
-                foreach (var childId in node.childNodes)
-                {
-                    if (m_Nodes.TryGetValue(childId, out GraphNodeData child))
-                    {
-                        Vector2 delta = child.position - node.position;
-                        float distance = delta.magnitude;
-                        
-                        // Hooke's law for spring attraction
-                        force += delta.normalized * distance * ATTRACTION_STRENGTH;
-                    }
-                }
-                
-                // Update velocity with damping
-                m_Velocities[nodeId] = (m_Velocities[nodeId] + force * FORCE_SCALE) * DAMPING;
             }
             
-            // Apply velocities to positions
+            // Calculate repulsion forces between all pairs of nodes
+            var nodeList = new List<KeyValuePair<int, GraphNodeData>>(m_Nodes);
+            for (int i = 0; i < nodeList.Count; i++)
+            {
+                for (int j = i + 1; j < nodeList.Count; j++)
+                {
+                    var node1 = nodeList[i].Value;
+                    var node2 = nodeList[j].Value;
+                    
+                    Vector2 delta = node1.position - node2.position;
+                    float distanceSq = delta.sqrMagnitude;
+                    
+                    // Avoid division by zero and use squared distance for efficiency
+                    if (distanceSq < MIN_DISTANCE * MIN_DISTANCE)
+                        distanceSq = MIN_DISTANCE * MIN_DISTANCE;
+                    
+                    float distance = Mathf.Sqrt(distanceSq);
+                    Vector2 direction = delta / distance; // Normalized direction
+                    
+                    // Coulomb's law for repulsion - apply equal and opposite forces
+                    Vector2 repulsionForce = direction * (REPULSION_STRENGTH / distanceSq);
+                    forces[nodeList[i].Key] += repulsionForce;
+                    forces[nodeList[j].Key] -= repulsionForce;
+                }
+            }
+            
+            // Calculate attraction forces along edges (bidirectional)
+            HashSet<(int, int)> processedEdges = new HashSet<(int, int)>();
+            
             foreach (var nodeEntry in m_Nodes)
             {
                 var node = nodeEntry.Value;
                 var nodeId = nodeEntry.Key;
                 
-                if (m_Velocities.TryGetValue(nodeId, out Vector2 velocity))
+                foreach (var childId in node.childNodes)
                 {
-                    node.position += velocity;
-                    node.rect = new Rect(node.position, node.rect.size);
+                    // Skip if we've already processed this edge in the opposite direction
+                    if (processedEdges.Contains((childId, nodeId)))
+                        continue;
+                    
+                    processedEdges.Add((nodeId, childId));
+                    
+                    if (m_Nodes.TryGetValue(childId, out GraphNodeData child))
+                    {
+                        Vector2 delta = child.position - node.position;
+                        float distanceSq = delta.sqrMagnitude;
+                        
+                        // Avoid division by zero
+                        if (distanceSq < MIN_DISTANCE * MIN_DISTANCE)
+                            continue;
+                        
+                        float distance = Mathf.Sqrt(distanceSq);
+                        Vector2 direction = delta / distance; // Normalized direction
+                        
+                        // Hooke's law for spring attraction - apply equal and opposite forces
+                        Vector2 attractionForce = direction * distance * ATTRACTION_STRENGTH;
+                        forces[nodeId] += attractionForce;
+                        forces[childId] -= attractionForce;
+                    }
                 }
             }
+            
+            // Update velocities and positions with convergence check
+            const float VELOCITY_THRESHOLD = 0.01f;
+            bool anySignificantMovement = false;
+            
+            foreach (var nodeEntry in m_Nodes)
+            {
+                var node = nodeEntry.Value;
+                var nodeId = nodeEntry.Key;
+                
+                // Update velocity with damping
+                m_Velocities[nodeId] = (m_Velocities[nodeId] + forces[nodeId] * FORCE_SCALE) * DAMPING;
+                
+                // Check if there's significant movement
+                if (m_Velocities[nodeId].sqrMagnitude > VELOCITY_THRESHOLD * VELOCITY_THRESHOLD)
+                {
+                    anySignificantMovement = true;
+                }
+                
+                // Apply velocity to position
+                node.position += m_Velocities[nodeId];
+                node.rect = new Rect(node.position, node.rect.size);
+            }
+            
+            // If no significant movement, we could potentially stop the simulation
+            // For now, we keep it running as it's relatively cheap for small graphs
         }
         
         void ExpandNode(GraphNodeData node)
