@@ -88,11 +88,11 @@ namespace HeapExplorer
             
             Rect graphArea = new Rect(0, 0, rect.width * 2, rect.height * 2);
             
-            GUI.BeginGroup(rect);
+            GUI.BeginGroup(graphArea);
             
             // Apply zoom and offset
             Matrix4x4 originalMatrix = GUI.matrix;
-            Vector2 pivot = rect.size * 0.5f;
+            Vector2 pivot = graphArea.size * 0.5f;
             GUIUtility.ScaleAroundPivot(Vector2.one * m_Zoom, pivot);
             
             // Handle events
@@ -104,7 +104,7 @@ namespace HeapExplorer
             // Draw nodes
             foreach (var node in m_Nodes.Values)
             {
-                DrawNode(node, rect);
+                DrawNode(node, graphArea);
             }
             
             GUI.matrix = originalMatrix;
