@@ -111,7 +111,7 @@ namespace HeapExplorer
             // Draw hover inspector on top of everything
             if (m_HoveredNode != null)
             {
-                DrawHoverInspector(m_HoveredNode);
+                DrawHoverInspector(m_HoveredNode, graphArea);
             }
             
             GUI.matrix = originalMatrix;
@@ -136,8 +136,8 @@ namespace HeapExplorer
                 e.Use();
             }
             
-            // Update hover state
-            if (e.type == EventType.MouseMove || e.type == EventType.Repaint)
+            // Update hover state on mouse move
+            if (e.type == EventType.MouseMove)
             {
                 Vector2 mouseInGraphSpace = e.mousePosition;
                 m_HoveredNode = null;
@@ -381,12 +381,29 @@ namespace HeapExplorer
             GUI.Label(instructionRect, "Click [+]: Expand one level\nClick [R]: Expand to root\nDrag: Move node\nMiddle-click drag: Pan view\nScroll: Zoom", style);
         }
         
-        void DrawHoverInspector(GraphNodeData node)
+        void DrawHoverInspector(GraphNodeData node, Rect graphArea)
         {
-            // Position the inspector near the node but offset to not overlap
-            Vector2 inspectorPos = node.position + new Vector2(node.radius + 10, -node.radius);
             float inspectorWidth = 250f;
             float inspectorHeight = 100f;
+            
+            // Position the inspector near the node but offset to not overlap
+            Vector2 inspectorPos = node.position + new Vector2(node.radius + 10, -node.radius);
+            
+            // Ensure inspector stays within graph area bounds
+            if (inspectorPos.x + inspectorWidth > graphArea.width)
+            {
+                // Position to the left of the node instead
+                inspectorPos.x = node.position.x - node.radius - inspectorWidth - 10;
+            }
+            
+            if (inspectorPos.y < 0)
+            {
+                inspectorPos.y = 0;
+            }
+            else if (inspectorPos.y + inspectorHeight > graphArea.height)
+            {
+                inspectorPos.y = graphArea.height - inspectorHeight;
+            }
             
             Rect inspectorRect = new Rect(inspectorPos.x, inspectorPos.y, inspectorWidth, inspectorHeight);
             
