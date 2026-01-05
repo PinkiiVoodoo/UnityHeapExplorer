@@ -83,9 +83,6 @@ namespace HeapExplorer
 
         public void OnGUI(Rect rect)
         {
-            // Handle events
-            HandleEvents(rect);
-            
             // Begin scrollable area
             GUI.Box(rect, "", EditorStyles.helpBox);
             
@@ -97,6 +94,9 @@ namespace HeapExplorer
             Matrix4x4 originalMatrix = GUI.matrix;
             Vector2 pivot = rect.size * 0.5f;
             GUIUtility.ScaleAroundPivot(Vector2.one * m_Zoom, pivot);
+            
+            // Handle events
+            HandleEvents(graphArea);
             
             // Draw connections first
             DrawConnections();
@@ -157,7 +157,7 @@ namespace HeapExplorer
             if (e.type == EventType.MouseDown && e.button == 0)
             {
                 // Transform mouse position to account for zoom pivot
-                Vector2 mouseInGraphSpace = TransformMouseToGraphSpace(e.mousePosition, rect, m_Zoom);
+                Vector2 mouseInGraphSpace = e.mousePosition;
                 
                 foreach (var node in m_Nodes.Values)
                 {
@@ -197,7 +197,7 @@ namespace HeapExplorer
             else if (e.type == EventType.MouseDrag && e.button == 0 && m_DraggingNode != null)
             {
                 // Transform mouse position to account for zoom pivot
-                Vector2 mouseInGraphSpace = TransformMouseToGraphSpace(e.mousePosition, rect, m_Zoom);
+                Vector2 mouseInGraphSpace = e.mousePosition;
                 
                 // Update node position during drag
                 Vector2 newPosition = mouseInGraphSpace - m_DragOffset;
@@ -213,17 +213,6 @@ namespace HeapExplorer
                     e.Use();
                 }
             }
-        }
-
-        // Transform mouse position from screen space to graph space, accounting for zoom pivot
-        Vector2 TransformMouseToGraphSpace(Vector2 mousePos, Rect rect, float zoom)
-        {
-            // Inverse transform: translate to pivot, scale, translate back
-            mousePos -= rect.position;
-            Vector2 pivot = rect.size * 0.5f;
-            Vector2 relativeToCenter = mousePos - pivot;
-            Vector2 scaledRelative = relativeToCenter / zoom;
-            return scaledRelative + pivot;
         }
 
         void DrawNode(GraphNodeData node, Rect containerRect)
