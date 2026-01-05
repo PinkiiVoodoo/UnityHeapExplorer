@@ -26,6 +26,7 @@ namespace HeapExplorer
         Vector2 m_PanStart;
         GraphNodeData m_DraggingNode = null;
         Vector2 m_DragOffset;
+        GraphNodeData m_HoveredNode = null;
 
         public ReferenceGraphViewIMGUI(PackedMemorySnapshot snapshot, Action<AbstractThreadJob> jobRunner)
         {
@@ -107,6 +108,12 @@ namespace HeapExplorer
                 DrawNode(node, graphArea);
             }
             
+            // Draw hover inspector on top of everything
+            if (m_HoveredNode != null)
+            {
+                DrawHoverInspector(m_HoveredNode);
+            }
+            
             GUI.matrix = originalMatrix;
             GUI.EndGroup();
             
@@ -129,6 +136,24 @@ namespace HeapExplorer
                 e.Use();
             }
             
+            // Update hover state
+            if (e.type == EventType.MouseMove || e.type == EventType.Repaint)
+            {
+                Vector2 mouseInGraphSpace = e.mousePosition;
+                m_HoveredNode = null;
+                
+                foreach (var node in m_Nodes.Values)
+                {
+                    // Check if mouse is within circle radius
+                    float distance = Vector2.Distance(mouseInGraphSpace, node.position);
+                    if (distance <= node.radius)
+                    {
+                        m_HoveredNode = node;
+                        break;
+                    }
+                }
+            }
+            
             // Handle panning with middle mouse button
             if (e.type == EventType.MouseDown && e.button == 2)
             {
@@ -147,7 +172,7 @@ namespace HeapExplorer
                 foreach (var node in m_Nodes.Values)
                 {
                     node.position += delta / m_Zoom;
-                    node.rect = new Rect(node.position, node.rect.size);
+                    node.rect = new Rect(node.position - new Vector2(node.radius, node.radius), new Vector2(node.radius * 2, node.radius * 2));
                 }
                 m_PanStart = e.mousePosition;
                 e.Use();
@@ -161,14 +186,16 @@ namespace HeapExplorer
                 
                 foreach (var node in m_Nodes.Values)
                 {
-                    Rect nodeRect = node.rect;
+                    float distance = Vector2.Distance(mouseInGraphSpace, node.position);
                     
-                    if (nodeRect.Contains(mouseInGraphSpace))
+                    if (distance <= node.radius)
                     {
                         // Check if clicking the expand to root button
                         if (!node.isExpanded)
                         {
-                            Rect expandToRootButtonRect = new Rect(nodeRect.x + nodeRect.width - 38, nodeRect.y + 5, 15, 15);
+                            // Buttons are positioned at the top right of the circle
+                            Vector2 buttonBasePos = node.position + new Vector2(node.radius - 38, -node.radius + 5);
+                            Rect expandToRootButtonRect = new Rect(buttonBasePos.x, buttonBasePos.y, 15, 15);
                             if (node.CanExpandToRoot() && expandToRootButtonRect.Contains(mouseInGraphSpace))
                             {
                                 ExpandToRoot(node);
@@ -177,7 +204,8 @@ namespace HeapExplorer
                             }
                             
                             // Check if clicking the expand button
-                            Rect expandButtonRect = new Rect(nodeRect.x + nodeRect.width - 20, nodeRect.y + 5, 15, 15);
+                            Vector2 expandButtonPos = node.position + new Vector2(node.radius - 20, -node.radius + 5);
+                            Rect expandButtonRect = new Rect(expandButtonPos.x, expandButtonPos.y, 15, 15);
                             if (expandButtonRect.Contains(mouseInGraphSpace))
                             {
                                 ExpandNode(node);
@@ -202,7 +230,7 @@ namespace HeapExplorer
                 // Update node position during drag
                 Vector2 newPosition = mouseInGraphSpace - m_DragOffset;
                 m_DraggingNode.position = newPosition;
-                m_DraggingNode.rect = new Rect(newPosition, m_DraggingNode.rect.size);
+                m_DraggingNode.rect = new Rect(newPosition - new Vector2(m_DraggingNode.radius, m_DraggingNode.radius), new Vector2(m_DraggingNode.radius * 2, m_DraggingNode.radius * 2));
                 e.Use();
             }
             else if (e.type == EventType.MouseUp && e.button == 0)
@@ -217,52 +245,52 @@ namespace HeapExplorer
 
         void DrawNode(GraphNodeData node, Rect containerRect)
         {
-            Rect nodeRect = new Rect(node.position, node.rect.size);
+            Rect nodeRect = node.rect;
 
             if (!nodeRect.Overlaps(containerRect))
             {
                 return;
             }
             
+            // Draw using Unity Handles for circles
+            Handles.BeginGUI();
+            
             if (node.isRoot)
             {
-                // Draw outer golden glow border for root nodes
-                Rect glowRect1 = new Rect(nodeRect.x - 3, nodeRect.y - 3, nodeRect.width + 6, nodeRect.height + 6);
-                EditorGUI.DrawRect(glowRect1, new Color(1.0f, 0.84f, 0.0f, 0.8f)); // Gold
+                // Draw outer golden glow for root nodes
+                Handles.color = new Color(1.0f, 0.84f, 0.0f, 0.8f); // Gold
+                Handles.DrawSolidDisc(node.position, Vector3.forward, node.radius + 3);
                 
-                Rect glowRect2 = new Rect(nodeRect.x - 2, nodeRect.y - 2, nodeRect.width + 4, nodeRect.height + 4);
-                EditorGUI.DrawRect(glowRect2, new Color(1.0f, 0.9f, 0.3f, 0.9f)); // Lighter gold
+                Handles.color = new Color(1.0f, 0.9f, 0.3f, 0.9f); // Lighter gold
+                Handles.DrawSolidDisc(node.position, Vector3.forward, node.radius + 2);
             }
             
             if (node.isEmptyShellObject)
             {
-                Rect glowRect2 = new Rect(nodeRect.x - 2, nodeRect.y - 2, nodeRect.width + 4, nodeRect.height + 4);
-                EditorGUI.DrawRect(glowRect2, new Color(1.0f, 0.3f, 0.3f, 0.9f)); // Lighter gold
+                Handles.color = new Color(1.0f, 0.3f, 0.3f, 0.9f); // Red warning
+                Handles.DrawSolidDisc(node.position, Vector3.forward, node.radius + 2);
             }
             
-            // Draw background and border
-            Rect borderRect = new Rect(nodeRect.x - 1, nodeRect.y - 1, nodeRect.width + 2, nodeRect.height + 2);
-            EditorGUI.DrawRect(borderRect, Color.black);
-            EditorGUI.DrawRect(nodeRect, node.color);
+            // Draw border (black circle)
+            Handles.color = Color.black;
+            Handles.DrawSolidDisc(node.position, Vector3.forward, node.radius + 1);
             
-            // Draw title
+            // Draw node background
+            Handles.color = node.color;
+            Handles.DrawSolidDisc(node.position, Vector3.forward, node.radius);
+            
+            Handles.EndGUI();
+            
+            // Draw title (only title, no subtitle)
             GUIStyle titleStyle = new GUIStyle(EditorStyles.boldLabel);
             titleStyle.normal.textColor = Color.white;
-            titleStyle.alignment = TextAnchor.UpperCenter;
+            titleStyle.alignment = TextAnchor.MiddleCenter;
             titleStyle.wordWrap = true;
             titleStyle.fontSize = 11;
             
-            Rect titleRect = new Rect(nodeRect.x + 5, nodeRect.y + 5, nodeRect.width - 10, 20);
+            // Title area is centered in the circle
+            Rect titleRect = new Rect(node.position.x - node.radius + 5, node.position.y - 10, node.radius * 2 - 10, 20);
             GUI.Label(titleRect, node.title, titleStyle);
-            
-            // Draw subtitle
-            GUIStyle subtitleStyle = new GUIStyle(EditorStyles.label);
-            subtitleStyle.normal.textColor = Color.white;
-            subtitleStyle.fontSize = 9;
-            subtitleStyle.wordWrap = true;
-            
-            Rect subtitleRect = new Rect(nodeRect.x + 5, nodeRect.y + 25, nodeRect.width - 10, nodeRect.height - 35);
-            GUI.Label(subtitleRect, node.subtitle, subtitleStyle);
             
             // Draw expand buttons if not expanded
             if (!node.isExpanded)
@@ -270,7 +298,8 @@ namespace HeapExplorer
                 if (node.CanExpandToRoot())
                 {
                     // Draw expand to root button (left button with "R")
-                    Rect expandToRootButtonRect = new Rect(nodeRect.x + nodeRect.width - 38, nodeRect.y + 5, 15, 15);
+                    Vector2 expandToRootPos = node.position + new Vector2(node.radius - 38, -node.radius + 5);
+                    Rect expandToRootButtonRect = new Rect(expandToRootPos.x, expandToRootPos.y, 15, 15);
                     
                     // Draw button background
                     EditorGUI.DrawRect(expandToRootButtonRect, new Color(0.2f, 0.2f, 0.2f, 0.8f));
@@ -289,7 +318,8 @@ namespace HeapExplorer
                 }
                 
                 // Draw expand one level button (right button with "+")
-                Rect expandButtonRect = new Rect(nodeRect.x + nodeRect.width - 20, nodeRect.y + 5, 15, 15);
+                Vector2 expandPos = node.position + new Vector2(node.radius - 20, -node.radius + 5);
+                Rect expandButtonRect = new Rect(expandPos.x, expandPos.y, 15, 15);
                 
                 // Draw button background
                 EditorGUI.DrawRect(expandButtonRect, new Color(0.2f, 0.2f, 0.2f, 0.8f));
@@ -319,14 +349,18 @@ namespace HeapExplorer
                 {
                     if (m_Nodes.TryGetValue(childId, out GraphNodeData childNode))
                     {
-                        // Draw line from node's left center to child's right center
-                        Vector2 start = new Vector2(node.position.x, node.position.y + node.rect.height / 2);
-                        Vector2 end = new Vector2(childNode.position.x + childNode.rect.width, childNode.position.y + childNode.rect.height / 2);
+                        // Calculate the direction from parent to child
+                        Vector2 direction = (childNode.position - node.position).normalized;
+                        
+                        // Start point is at the edge of parent circle in the direction of child
+                        Vector2 start = node.position + direction * node.radius;
+                        
+                        // End point is at the edge of child circle in the direction of parent
+                        Vector2 end = childNode.position - direction * childNode.radius;
                         
                         Handles.DrawAAPolyLine(3f, start, end);
                         
-                        // Draw arrow head
-                        Vector2 direction = (end - start).normalized;
+                        // Draw arrow head at the end
                         Vector2 arrowLeft = end - direction * 10 + new Vector2(-direction.y, direction.x) * 5;
                         Vector2 arrowRight = end - direction * 10 - new Vector2(-direction.y, direction.x) * 5;
                         Handles.DrawAAPolyLine(3f, arrowLeft, end, arrowRight);
@@ -345,6 +379,44 @@ namespace HeapExplorer
             
             Rect instructionRect = new Rect(rect.x + 5, rect.y + 5, 350, 75);
             GUI.Label(instructionRect, "Click [+]: Expand one level\nClick [R]: Expand to root\nDrag: Move node\nMiddle-click drag: Pan view\nScroll: Zoom", style);
+        }
+        
+        void DrawHoverInspector(GraphNodeData node)
+        {
+            // Position the inspector near the node but offset to not overlap
+            Vector2 inspectorPos = node.position + new Vector2(node.radius + 10, -node.radius);
+            float inspectorWidth = 250f;
+            float inspectorHeight = 100f;
+            
+            Rect inspectorRect = new Rect(inspectorPos.x, inspectorPos.y, inspectorWidth, inspectorHeight);
+            
+            // Draw background with node color
+            Rect backgroundRect = new Rect(inspectorRect.x - 1, inspectorRect.y - 1, inspectorRect.width + 2, inspectorRect.height + 2);
+            EditorGUI.DrawRect(backgroundRect, Color.black);
+            EditorGUI.DrawRect(inspectorRect, node.color);
+            
+            // Draw semi-transparent overlay for better text readability
+            EditorGUI.DrawRect(inspectorRect, new Color(0, 0, 0, 0.3f));
+            
+            // Draw title
+            GUIStyle titleStyle = new GUIStyle(EditorStyles.boldLabel);
+            titleStyle.normal.textColor = Color.white;
+            titleStyle.alignment = TextAnchor.UpperLeft;
+            titleStyle.wordWrap = true;
+            titleStyle.fontSize = 11;
+            
+            Rect titleRect = new Rect(inspectorRect.x + 5, inspectorRect.y + 5, inspectorRect.width - 10, 20);
+            GUI.Label(titleRect, node.title, titleStyle);
+            
+            // Draw subtitle
+            GUIStyle subtitleStyle = new GUIStyle(EditorStyles.label);
+            subtitleStyle.normal.textColor = Color.white;
+            subtitleStyle.fontSize = 9;
+            subtitleStyle.wordWrap = true;
+            subtitleStyle.alignment = TextAnchor.UpperLeft;
+            
+            Rect subtitleRect = new Rect(inspectorRect.x + 5, inspectorRect.y + 25, inspectorRect.width - 10, inspectorRect.height - 30);
+            GUI.Label(subtitleRect, node.subtitle, subtitleStyle);
         }
         
         void ExpandNode(GraphNodeData node)
