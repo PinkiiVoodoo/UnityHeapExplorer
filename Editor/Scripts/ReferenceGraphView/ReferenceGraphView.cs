@@ -33,6 +33,13 @@ namespace HeapExplorer
             m_Snapshot = snapshot;
             m_JobRunner = jobRunner;
         }
+        
+        // Transform mouse position from screen space to graph space accounting for zoom
+        Vector2 ScreenToGraphSpace(Vector2 screenPos, Rect graphArea)
+        {
+            Vector2 pivot = graphArea.size * 0.5f;
+            return (screenPos - pivot) / m_Zoom + pivot;
+        }
 
         public void Clear()
         {
@@ -140,7 +147,7 @@ namespace HeapExplorer
             // Update hover state on mouse move
             if (e.type == EventType.MouseMove)
             {
-                Vector2 mouseInGraphSpace = e.mousePosition;
+                Vector2 mouseInGraphSpace = ScreenToGraphSpace(e.mousePosition, rect);
                 m_HoveredNode = null;
                 
                 foreach (var node in m_Nodes.Values)
@@ -182,8 +189,8 @@ namespace HeapExplorer
             // Handle node dragging with left mouse button
             if (e.type == EventType.MouseDown && e.button == 0)
             {
-                // Transform mouse position to account for zoom pivot
-                Vector2 mouseInGraphSpace = e.mousePosition;
+                // Transform mouse position to account for zoom
+                Vector2 mouseInGraphSpace = ScreenToGraphSpace(e.mousePosition, rect);
                 
                 foreach (var node in m_Nodes.Values)
                 {
@@ -225,8 +232,8 @@ namespace HeapExplorer
             }
             else if (e.type == EventType.MouseDrag && e.button == 0 && m_DraggingNode != null)
             {
-                // Transform mouse position to account for zoom pivot
-                Vector2 mouseInGraphSpace = e.mousePosition;
+                // Transform mouse position to account for zoom
+                Vector2 mouseInGraphSpace = ScreenToGraphSpace(e.mousePosition, rect);
                 
                 // Update node position during drag
                 Vector2 newPosition = mouseInGraphSpace - m_DragOffset;
