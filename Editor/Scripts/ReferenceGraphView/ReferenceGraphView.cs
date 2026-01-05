@@ -108,13 +108,14 @@ namespace HeapExplorer
                 DrawNode(node, graphArea);
             }
             
-            // Draw hover inspector on top of everything
+            GUI.matrix = originalMatrix;
+            
+            // Draw hover inspector outside of the zoom matrix
             if (m_HoveredNode != null)
             {
                 DrawHoverInspector(m_HoveredNode, graphArea);
             }
             
-            GUI.matrix = originalMatrix;
             GUI.EndGroup();
             
             // Draw instructions overlay
@@ -386,14 +387,19 @@ namespace HeapExplorer
             float inspectorWidth = 250f;
             float inspectorHeight = 100f;
             
+            // Transform node position from graph space to screen space (accounting for zoom)
+            Vector2 pivot = graphArea.size * 0.5f;
+            Vector2 screenNodePos = (node.position - pivot) * m_Zoom + pivot;
+            float screenRadius = node.radius * m_Zoom;
+            
             // Position the inspector near the node but offset to not overlap
-            Vector2 inspectorPos = node.position + new Vector2(node.radius + 10, -node.radius);
+            Vector2 inspectorPos = screenNodePos + new Vector2(screenRadius + 10, -screenRadius);
             
             // Ensure inspector stays within graph area bounds
             if (inspectorPos.x + inspectorWidth > graphArea.width)
             {
                 // Position to the left of the node instead
-                inspectorPos.x = node.position.x - node.radius - inspectorWidth - 10;
+                inspectorPos.x = screenNodePos.x - screenRadius - inspectorWidth - 10;
             }
             
             if (inspectorPos.y < 0)
