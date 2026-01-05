@@ -20,8 +20,15 @@ namespace HeapExplorer
             {
                 base.ThreadFunc();
             }
-            
-            control.AddPathNodes(paths[++data.pathIndex], data);
+        }
+
+        public override void IntegrateFunc()
+        {
+            ++data.pathIndex;
+            if (data.pathIndex < paths.count)
+            {
+                control.AddPathNodes(paths[data.pathIndex], data);   
+            }
         }
     }
 }
