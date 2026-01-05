@@ -33,6 +33,7 @@ namespace HeapExplorer
         const float ATTRACTION_STRENGTH = 0.1f;
         const float DAMPING = 0.85f;
         const float MIN_DISTANCE = 1f;
+        const float FORCE_SCALE = 0.01f;
         Dictionary<int, Vector2> m_Velocities = new Dictionary<int, Vector2>();
 
         public ReferenceGraphViewIMGUI(PackedMemorySnapshot snapshot, Action<AbstractThreadJob> jobRunner)
@@ -370,7 +371,9 @@ namespace HeapExplorer
                 ? "Auto-arrange enabled\nClick [+]: Expand one level\nClick [R]: Expand to root\nDrag: Move node (disables auto-arrange)\nMiddle-click drag: Pan view\nScroll: Zoom"
                 : "Click [+]: Expand one level\nClick [R]: Expand to root\nDrag: Move node\nMiddle-click drag: Pan view\nScroll: Zoom";
             
-            Rect instructionRect = new Rect(rect.x + 5, rect.y + 5, 350, 90);
+            // Calculate instruction rect based on content
+            Vector2 instructionSize = style.CalcSize(new GUIContent(instructions));
+            Rect instructionRect = new Rect(rect.x + 5, rect.y + 5, Mathf.Max(350, instructionSize.x + 10), Mathf.Max(90, instructionSize.y + 10));
             GUI.Label(instructionRect, instructions, style);
         }
         
@@ -423,7 +426,7 @@ namespace HeapExplorer
                 }
                 
                 // Update velocity with damping
-                m_Velocities[nodeId] = (m_Velocities[nodeId] + force * 0.01f) * DAMPING;
+                m_Velocities[nodeId] = (m_Velocities[nodeId] + force * FORCE_SCALE) * DAMPING;
             }
             
             // Apply velocities to positions
