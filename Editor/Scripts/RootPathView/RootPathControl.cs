@@ -294,6 +294,11 @@ namespace HeapExplorer
             {
                 if (column == 0)
                 {
+                    if (HeEditorGUI.ReferenceButton(HeEditorGUI.SpaceL(ref position, position.height)))
+                    {
+                        m_Owner.window.OnGoto(new GotoReferenceCommand(m_ManagedObject));
+                    }
+                    
                     if (HeEditorGUI.CsButton(HeEditorGUI.SpaceL(ref position, position.height)))
                     {
                         m_Owner.window.OnGoto(new GotoCommand(m_ManagedObject));
@@ -390,6 +395,11 @@ namespace HeapExplorer
             {
                 if (column == 0)
                 {
+                    if (HeEditorGUI.ReferenceButton(HeEditorGUI.SpaceL(ref position, position.height)))
+                    {
+                        m_Owner.window.OnGoto(new GotoReferenceCommand(m_NativeObject));
+                    }
+                    
                     if (HeEditorGUI.CppButton(HeEditorGUI.SpaceL(ref position, position.height)))
                     {
                         m_Owner.window.OnGoto(new GotoCommand(m_NativeObject));

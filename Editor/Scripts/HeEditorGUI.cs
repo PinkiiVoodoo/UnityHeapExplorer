@@ -305,6 +305,14 @@ namespace HeapExplorer
             return pressed;
         }
 
+        public static bool ReferenceButton(Rect position)
+        {
+            if (GUI.Button(position, new GUIContent("", HeEditorStyles.csReferenceTypeImage, "Reference View"), HeEditorStyles.gotoStyle))
+                return true;
+
+            return false;
+        }
+        
         public static bool CsButton(Rect position)
         {
             if (GUI.Button(position, new GUIContent("", HeEditorStyles.csImage, "C# Object"), HeEditorStyles.gotoStyle))

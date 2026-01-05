@@ -19,6 +19,7 @@ namespace HeapExplorer
         public RichNativeObject toNativeObject;
         public RichStaticField toStaticField;
         public RichManagedType toManagedType;
+        public bool ShowInReferencesView;
 
         public GotoCommand()
         {
@@ -52,6 +53,39 @@ namespace HeapExplorer
             : this()
         {
             toManagedType = value;
+        }
+    }
+    
+    internal class GotoReferenceCommand : GotoCommand
+    {
+        public GotoReferenceCommand(RichGCHandle value)
+            : base(value)
+        {
+            ShowInReferencesView = true;
+        }
+
+        public GotoReferenceCommand(RichManagedObject value)
+            : base(value)
+        {
+            ShowInReferencesView = true;
+        }
+
+        public GotoReferenceCommand(RichNativeObject value)
+            : base(value)
+        {
+            ShowInReferencesView = true;
+        }
+
+        public GotoReferenceCommand(RichStaticField value)
+            : base(value)
+        {
+            ShowInReferencesView = true;
+        }
+
+        public GotoReferenceCommand(RichManagedType value)
+            : base(value)
+        {
+            ShowInReferencesView = true;
         }
     }
 

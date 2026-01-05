@@ -10,8 +10,7 @@ namespace HeapExplorer
     public class ReferenceGraphWindow : HeapExplorerView
     {
         ReferenceGraphViewIMGUI m_GraphView;
-        PackedManagedObject? m_InitialManagedObject;
-        PackedNativeUnityEngineObject? m_InitialNativeObject;
+        ObjectProxy m_InitialObjectProxy;
         bool m_NeedsRebuild;
         Rect m_GraphRect;
 
@@ -87,15 +86,9 @@ namespace HeapExplorer
             {
                 m_NeedsRebuild = false;
 
-                if (m_InitialManagedObject.HasValue)
+                if (m_InitialObjectProxy != null)
                 {
-                    m_GraphView.ShowObject(new ObjectProxy(snapshot, m_InitialManagedObject.Value), new Vector2(400, 200));
-                    m_InitialManagedObject = null;
-                }
-                else if (m_InitialNativeObject.HasValue)
-                {
-                    m_GraphView.ShowObject(new ObjectProxy(snapshot,m_InitialNativeObject.Value), new Vector2(400, 200));
-                    m_InitialNativeObject = null;
+                    ShowObject(m_InitialObjectProxy);
                 }
                 else
                 {
@@ -126,15 +119,7 @@ namespace HeapExplorer
                 var obj = snapshot.managedObjects[Random.Range(0, snapshot.managedObjects.Length)];
                 if (obj.address != 0 && obj.size > 0)
                 {
-                    if (m_GraphView != null)
-                    {
-                        m_GraphView.ShowObject(new ObjectProxy(snapshot, obj), new Vector2(400, 200));
-                    }
-                    else
-                    {
-                        m_InitialManagedObject = obj;
-                        m_NeedsRebuild = true;
-                    }
+                    ShowObject(new ObjectProxy(snapshot, obj));
                     return;
                 }
             }
@@ -154,50 +139,32 @@ namespace HeapExplorer
                 var obj = snapshot.nativeObjects[Random.Range(0, snapshot.nativeObjects.Length)];
                 if (obj.size > 0)
                 {
-                    if (m_GraphView != null)
-                    {
-                        m_GraphView.ShowObject(new ObjectProxy(snapshot, obj), new Vector2(400, 200));
-                    }
-                    else
-                    {
-                        m_InitialNativeObject = obj;
-                        m_NeedsRebuild = true;
-                    }
+                    ShowObject(new ObjectProxy(snapshot, obj));
                     return;
                 }
             }
         }
 
-        public void ShowObject(PackedManagedObject obj)
+        void ShowObject(ObjectProxy obj)
         {
             if (m_GraphView != null)
             {
-                m_GraphView.ShowObject(new ObjectProxy(snapshot, obj), new Vector2(400, 200));
+                m_GraphView.ShowObject(obj, new Vector2(400, 200));
             }
             else
             {
-                m_InitialManagedObject = obj;
-                m_NeedsRebuild = true;
-            }
-        }
-
-        public void ShowObject(PackedNativeUnityEngineObject obj)
-        {
-            if (m_GraphView != null)
-            {
-                m_GraphView.ShowObject(new ObjectProxy(snapshot, obj), new Vector2(400, 200));
-            }
-            else
-            {
-                m_InitialNativeObject = obj;
+                m_InitialObjectProxy = obj;
                 m_NeedsRebuild = true;
             }
         }
 
         public override int CanProcessCommand(GotoCommand command)
         {
+            if (!command.ShowInReferencesView) 
+                return 0;
+            
             // We can handle managed and native objects
-            if (command.toManagedObject.isValid || command.toNativeObject.isValid)
+            if (command.toManagedObject.isValid || command.toNativeObject.isValid || command.toStaticField.isValid || command.toGCHandle.isValid)
                 return 100;
 
             return 0;
@@ -207,11 +174,19 @@ namespace HeapExplorer
         {
             if (command.toManagedObject.isValid)
             {
-                ShowObject(command.toManagedObject.packed);
+                ShowObject(new ObjectProxy(snapshot, command.toManagedObject.packed));
             }
             else if (command.toNativeObject.isValid)
             {
-                ShowObject(command.toNativeObject.packed);
+                ShowObject(new ObjectProxy(snapshot, command.toNativeObject.packed));
+            }
+            else if (command.toGCHandle.isValid)
+            {
+                ShowObject(new ObjectProxy(snapshot, command.toGCHandle.packed));
+            }
+            else if (command.toStaticField.isValid)
+            {
+                ShowObject(new ObjectProxy(snapshot, command.toStaticField.packed));
             }
         }
 
