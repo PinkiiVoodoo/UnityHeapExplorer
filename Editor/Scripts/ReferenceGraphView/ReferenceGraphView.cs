@@ -35,6 +35,7 @@ namespace HeapExplorer
         const float MIN_DISTANCE = 1f;
         const float FORCE_SCALE = 0.01f;
         const float VELOCITY_THRESHOLD = 0.01f;
+        const float ZERO_DISTANCE_THRESHOLD = 0.0001f;
         Dictionary<int, Vector2> m_Velocities = new Dictionary<int, Vector2>();
         Dictionary<int, Vector2> m_Forces = new Dictionary<int, Vector2>();
         List<KeyValuePair<int, GraphNodeData>> m_NodeList = new List<KeyValuePair<int, GraphNodeData>>();
@@ -420,23 +421,30 @@ namespace HeapExplorer
                     Vector2 delta = node1.position - node2.position;
                     float distanceSq = delta.sqrMagnitude;
                     
+                    Vector2 direction;
+                    
                     // Avoid division by zero - clamp to minimum distance
                     if (distanceSq < MIN_DISTANCE * MIN_DISTANCE)
                     {
                         distanceSq = MIN_DISTANCE * MIN_DISTANCE;
-                        // When very close, use normalized delta if it's valid, otherwise use a default direction
-                        if (delta.sqrMagnitude > 0.0001f)
+                        // When very close, determine a valid direction
+                        if (delta.sqrMagnitude > ZERO_DISTANCE_THRESHOLD)
                         {
-                            delta = delta.normalized * MIN_DISTANCE;
+                            direction = delta.normalized;
                         }
                         else
                         {
-                            // Nodes are at the same position, push them apart in a random direction
-                            delta = new Vector2(1, 0) * MIN_DISTANCE;
+                            // Nodes are at the same position, use a deterministic fallback direction
+                            // based on node IDs to ensure consistent behavior
+                            int hash = (m_NodeList[i].Key ^ m_NodeList[j].Key);
+                            float angle = (hash % 360) * Mathf.Deg2Rad;
+                            direction = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
                         }
                     }
-                    
-                    Vector2 direction = delta.normalized;
+                    else
+                    {
+                        direction = delta.normalized;
+                    }
                     
                     // Coulomb's law for repulsion - apply equal and opposite forces
                     Vector2 repulsionForce = direction * (REPULSION_STRENGTH / distanceSq);
