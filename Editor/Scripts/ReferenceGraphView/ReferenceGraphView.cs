@@ -218,6 +218,11 @@ namespace HeapExplorer
         void DrawNode(GraphNodeData node, Rect containerRect)
         {
             Rect nodeRect = new Rect(node.position, node.rect.size);
+
+            if (!nodeRect.Overlaps(containerRect))
+            {
+                return;
+            }
             
             if (node.isRoot)
             {
