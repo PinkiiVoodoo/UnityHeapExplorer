@@ -120,7 +120,7 @@ namespace HeapExplorer
             GUIUtility.ScaleAroundPivot(Vector2.one * m_Zoom, pivot);
             
             // Apply auto-arrange force-directed layout
-            if (m_AutoArrange && m_DraggingNode == null)
+            if (m_AutoArrange)
             {
                 ApplyForceDirectedLayout();
             }
@@ -528,6 +528,9 @@ namespace HeapExplorer
             {
                 var node = nodeEntry.Value;
                 var nodeId = nodeEntry.Key;
+                
+                if (nodeId == m_DraggingNode?.GetHashCode())
+                    continue; // Skip updating position of dragged node
                 
                 // Update velocity with damping
                 m_Velocities[nodeId] = (m_Velocities[nodeId] + m_Forces[nodeId] * FORCE_SCALE) * DAMPING;
