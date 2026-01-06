@@ -30,7 +30,7 @@ namespace HeapExplorer
             set
             {
                 position = value;
-                rect.position = position - new Vector2(radius, radius);
+                rect = new Rect(position - new Vector2(radius, radius), new Vector2(radius * 2, radius * 2));
             }
         }
 
