@@ -495,12 +495,16 @@ namespace HeapExplorer
                     {
                         Vector2 delta = child.Position - node.Position;
                         float distanceSq = delta.sqrMagnitude;
+                        
                         var minDistance = MinDistanceBetweenNodes(node, child);
                         
                         // Skip attraction force when nodes are too close to avoid division by zero
                         // and because repulsion forces will dominate anyway at close range
-                        if (distanceSq < minDistance * minDistance)
+                        distanceSq = Math.Max(distanceSq - minDistance * minDistance, 0);
+                        if (distanceSq < ZERO_DISTANCE_THRESHOLD)
+                        {
                             continue;
+                        }
                         
                         // Calculate distance and direction efficiently
                         float distance = Mathf.Sqrt(distanceSq);
