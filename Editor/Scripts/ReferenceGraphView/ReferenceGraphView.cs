@@ -32,7 +32,7 @@ namespace HeapExplorer
         bool m_AutoArrange = false;
         const float REPULSION_STRENGTH = 10000f;
         const float ATTRACTION_STRENGTH = 0.1f;
-        const float DAMPING = 0.95f;
+        const float DAMPING = 0.75f;
         const float NODES_OFFSET = 30f;
         const float FORCE_SCALE = 0.05f;
         const float ZERO_DISTANCE_THRESHOLD = 0.0001f;
