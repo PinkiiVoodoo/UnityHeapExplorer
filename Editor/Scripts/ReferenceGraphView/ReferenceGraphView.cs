@@ -450,8 +450,6 @@ namespace HeapExplorer
                     
                     Vector2 delta = node1.Position - node2.Position;
                     float distanceSq = delta.sqrMagnitude;
-
-                    var minDistance = MinDistanceBetweenNodes(node1, node2);
                     
                     Vector2 direction;
                     
@@ -463,13 +461,6 @@ namespace HeapExplorer
                         int hash = Mathf.Abs(m_NodeList[i].Key ^ m_NodeList[j].Key);
                         float angle = (hash % 360) * Mathf.Deg2Rad;
                         direction = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
-                        distanceSq = minDistance * minDistance;
-                    }
-                    else if (distanceSq < minDistance * minDistance)
-                    {
-                        // Nodes are close but not overlapping, use actual direction but clamp distance
-                        direction = delta.normalized;
-                        distanceSq = minDistance * minDistance;
                     }
                     else
                     {
@@ -478,7 +469,7 @@ namespace HeapExplorer
                     }
                     
                     // Coulomb's law for repulsion - apply equal and opposite forces
-                    Vector2 repulsionForce = direction * (REPULSION_STRENGTH / distanceSq);
+                    Vector2 repulsionForce = direction * (REPULSION_STRENGTH / Math.Max(NODES_OFFSET * NODES_OFFSET, distanceSq));
                     m_Forces[m_NodeList[i].Key] += repulsionForce;
                     m_Forces[m_NodeList[j].Key] -= repulsionForce;
                 }
