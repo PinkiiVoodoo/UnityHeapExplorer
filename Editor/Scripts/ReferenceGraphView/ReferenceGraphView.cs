@@ -537,7 +537,7 @@ namespace HeapExplorer
         
         float MinDistanceBetweenNodes(GraphNodeData nodeA, GraphNodeData nodeB)
         {
-            return nodeA.radius + nodeB.radius + NODES_OFFSET * (1 + (nodeA.childNodes.Count + nodeB.childNodes.Count)*0.05f);
+            return nodeA.radius + nodeB.radius + NODES_OFFSET * (1 + Math.Max(0, nodeA.childNodes.Count + nodeB.childNodes.Count - 4) * 0.5f);
         }
         
         void DrawHoverInspector(GraphNodeData node)
