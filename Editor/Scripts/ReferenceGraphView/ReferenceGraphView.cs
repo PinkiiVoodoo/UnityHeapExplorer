@@ -467,9 +467,13 @@ namespace HeapExplorer
                         // Normal case - nodes are far enough apart
                         direction = delta.normalized;
                     }
+
+                    var repulsionStrength = REPULSION_STRENGTH;
+                    repulsionStrength = node1.radius * 2 * node2.radius * 2;
                     
                     // Coulomb's law for repulsion - apply equal and opposite forces
-                    Vector2 repulsionForce = direction * (REPULSION_STRENGTH / Math.Max(NODES_OFFSET * NODES_OFFSET, distanceSq));
+                    Vector2 repulsionForce = direction * (repulsionStrength / Math.Max(NODES_OFFSET * NODES_OFFSET, distanceSq));
+                    
                     m_Forces[m_NodeList[i].Key] += repulsionForce;
                     m_Forces[m_NodeList[j].Key] -= repulsionForce;
                 }
