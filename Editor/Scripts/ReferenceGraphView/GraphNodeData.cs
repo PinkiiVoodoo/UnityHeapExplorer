@@ -6,7 +6,7 @@ namespace HeapExplorer
 {
     public class GraphNodeData : IEqualityComparer<GraphNodeData>
     {
-        const int Radius = 45;
+        public const int Radius = 45;
         const int extraRadiusPerChild = 5;
         
         public readonly string title;
@@ -21,6 +21,7 @@ namespace HeapExplorer
         public readonly bool isRoot;
         public readonly bool isEmptyShellObject;
 
+        public GraphNodeData parentNode;
         public HashSet<int> childNodes = new HashSet<int>();
 
         Vector2 position;

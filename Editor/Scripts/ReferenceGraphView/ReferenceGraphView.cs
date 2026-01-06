@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
+using Random = UnityEngine.Random;
 
 namespace HeapExplorer
 {
@@ -75,9 +76,22 @@ namespace HeapExplorer
         
         void AddObjectNode(ObjectProxy obj, GraphNodeData parent)
         {
-            Vector2 position = new Vector2(
+            Vector2 position;
+            if (parent.parentNode != null)
+            {
+                var grandParent = parent.parentNode;
+
+                var randomOffset = Random.insideUnitCircle * parent.childNodes.Count;
+                var direction = (parent.Position - grandParent.Position + randomOffset).normalized;
+                position = parent.Position + direction * (parent.radius + GraphNodeData.Radius + NODE_VERTICAL_SPACING);
+            }
+            else {
+                position = new Vector2(
                 parent.Position.x - NODE_VERTICAL_SPACING,
                 parent.Position.y + parent.childNodes.Count * NODE_VERTICAL_SPACING);
+                
+            }
+            
             AddObjectNode(obj, position, parent);
         }
         
@@ -102,6 +116,7 @@ namespace HeapExplorer
             if (parent != null)
             {
                 parent.childNodes.Add(node.GetHashCode());
+                node.parentNode = parent;
             }
         }
 
