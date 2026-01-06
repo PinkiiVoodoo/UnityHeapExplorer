@@ -32,9 +32,9 @@ namespace HeapExplorer
         bool m_AutoArrange = false;
         const float REPULSION_STRENGTH = 10000f;
         const float ATTRACTION_STRENGTH = 0.1f;
-        const float DAMPING = 0.85f;
-        const float MIN_DISTANCE = 120f;
-        const float FORCE_SCALE = 0.01f;
+        const float DAMPING = 0.95f;
+        const float NODES_OFFSET = 30f;
+        const float FORCE_SCALE = 0.05f;
         const float ZERO_DISTANCE_THRESHOLD = 0.0001f;
         Dictionary<int, Vector2> m_Velocities = new Dictionary<int, Vector2>();
         Dictionary<int, Vector2> m_Forces = new Dictionary<int, Vector2>();
@@ -443,13 +443,15 @@ namespace HeapExplorer
             
             for (int i = 0; i < m_NodeList.Count; i++)
             {
+                var node1 = m_NodeList[i].Value;
                 for (int j = i + 1; j < m_NodeList.Count; j++)
                 {
-                    var node1 = m_NodeList[i].Value;
                     var node2 = m_NodeList[j].Value;
                     
                     Vector2 delta = node1.Position - node2.Position;
                     float distanceSq = delta.sqrMagnitude;
+
+                    var minDistance = MinDistanceBetweenNodes(node1, node2);
                     
                     Vector2 direction;
                     
@@ -461,13 +463,13 @@ namespace HeapExplorer
                         int hash = Mathf.Abs(m_NodeList[i].Key ^ m_NodeList[j].Key);
                         float angle = (hash % 360) * Mathf.Deg2Rad;
                         direction = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
-                        distanceSq = MIN_DISTANCE * MIN_DISTANCE;
+                        distanceSq = minDistance * minDistance;
                     }
-                    else if (distanceSq < MIN_DISTANCE * MIN_DISTANCE)
+                    else if (distanceSq < minDistance * minDistance)
                     {
                         // Nodes are close but not overlapping, use actual direction but clamp distance
                         direction = delta.normalized;
-                        distanceSq = MIN_DISTANCE * MIN_DISTANCE;
+                        distanceSq = minDistance * minDistance;
                     }
                     else
                     {
@@ -502,10 +504,11 @@ namespace HeapExplorer
                     {
                         Vector2 delta = child.Position - node.Position;
                         float distanceSq = delta.sqrMagnitude;
+                        var minDistance = MinDistanceBetweenNodes(node, child);
                         
                         // Skip attraction force when nodes are too close to avoid division by zero
                         // and because repulsion forces will dominate anyway at close range
-                        if (distanceSq < MIN_DISTANCE * MIN_DISTANCE)
+                        if (distanceSq < minDistance * minDistance)
                             continue;
                         
                         // Calculate distance and direction efficiently
@@ -532,6 +535,11 @@ namespace HeapExplorer
                 // Apply velocity to position
                 node.Position += m_Velocities[nodeId];
             }
+        }
+        
+        float MinDistanceBetweenNodes(GraphNodeData nodeA, GraphNodeData nodeB)
+        {
+            return nodeA.radius + nodeB.radius + NODES_OFFSET * (1 + (nodeA.childNodes.Count + nodeB.childNodes.Count)*0.05f);
         }
         
         void DrawHoverInspector(GraphNodeData node)
