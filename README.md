@@ -117,6 +117,7 @@ The Reference Graph view provides a visual representation of object references t
 
 - **Visual Navigation**: See object relationships in a graph format
 - **Interactive Exploration**: Click [+] to expand one level, or [R] to expand to root and trace full reference chains
+- **Auto-arrange Layout**: Enable automatic node positioning using a force-directed graph algorithm to minimize overlaps
 - **Pan and Zoom**: Navigate large graphs with middle-click drag and scroll wheel
 - **Object Information**: Each node shows type, size, and memory address
 - **Leak Detection**: Trace reference chains to find why objects aren't being garbage collected

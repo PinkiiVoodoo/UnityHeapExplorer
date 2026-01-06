@@ -9,6 +9,7 @@ The Reference Graph window is a new visualization tool in HeapExplorer that help
 ### Visual Graph Navigation
 - **Interactive Nodes**: Each node represents a memory object (managed or native)
 - **Expandable References**: Click the [+] button to expand one level, or [R] to expand to the first root
+- **Auto-arrange Layout**: Enable the "Auto-arrange" checkbox to automatically position nodes using a force-directed graph algorithm
 - **Pan and Zoom**: Navigate large graphs easily with mouse controls
 - **Clear Visual Distinction**: Different colors for managed (C#) and native (C++) objects
 
@@ -29,12 +30,17 @@ The Reference Graph window is a new visualization tool in HeapExplorer that help
 2. **Expand References**: 
    - Click the [+] button to expand one level and see which objects reference it
    - Click the [R] button to automatically expand until reaching a root object
-3. **Arrange Nodes**: Drag individual nodes to reposition them
-4. **Navigate**: 
+3. **Auto-arrange**: 
+   - Enable the "Auto-arrange" checkbox to activate automatic node positioning
+   - The graph will automatically expand and organize nodes to minimize overlaps
+   - Nodes will continuously adjust their positions using a force-directed layout algorithm
+   - Manually dragging a node will disable auto-arrange mode
+4. **Arrange Nodes**: Drag individual nodes to reposition them manually
+5. **Navigate**: 
    - Drag nodes to move them
    - Middle-click and drag to pan the entire view
    - Scroll wheel to zoom in/out
-5. **Reset**: Click "Clear Graph" to start over
+6. **Reset**: Click "Clear Graph" to start over
 
 ### Understanding the Display
 
@@ -76,11 +82,12 @@ Each node displays:
 ## Tips and Best Practices
 
 1. **Start Small**: Begin with a single object to avoid overwhelming the view
-2. **Limit Expansions**: The tool limits to 10 child nodes per expansion to keep the graph readable
-3. **Use with Other Views**: Combine with "Paths to Root" view for comprehensive leak analysis
-4. **Clear Regularly**: Use "Clear Graph" when switching focus to different objects
-5. **Organize Nodes**: Drag nodes to arrange them in a layout that makes sense for your analysis
-6. **Pan vs Drag**: Middle-click to pan the entire view, left-click-drag to move individual nodes
+2. **Use Auto-arrange**: Enable the "Auto-arrange" checkbox when working with complex graphs to automatically organize nodes and reduce overlaps
+3. **Limit Expansions**: The tool limits to 10 child nodes per expansion to keep the graph readable
+4. **Use with Other Views**: Combine with "Paths to Root" view for comprehensive leak analysis
+5. **Clear Regularly**: Use "Clear Graph" when switching focus to different objects
+6. **Organize Nodes**: Drag nodes to arrange them in a layout that makes sense for your analysis (this will disable auto-arrange)
+7. **Pan vs Drag**: Middle-click to pan the entire view, left-click-drag to move individual nodes
 
 ## Technical Notes
 
@@ -104,5 +111,5 @@ Potential improvements could include:
 - Configurable node expansion limit
 - Search/filter functionality
 - Export graph to image
-- Automatic layout algorithms for better organization
+- Configurable force-directed layout parameters
 - Collapsible nodes to hide subtrees

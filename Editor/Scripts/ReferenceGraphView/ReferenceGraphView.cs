@@ -27,6 +27,19 @@ namespace HeapExplorer
         GraphNodeData m_DraggingNode = null;
         Vector2 m_DragOffset;
         GraphNodeData m_HoveredNode = null;
+        
+        // Auto-arrange force-directed layout
+        bool m_AutoArrange = false;
+        const float REPULSION_STRENGTH = 10000f;
+        const float ATTRACTION_STRENGTH = 0.1f;
+        const float DAMPING = 0.75f;
+        const float NODES_OFFSET = 30f;
+        const float FORCE_SCALE = 0.05f;
+        const float ZERO_DISTANCE_THRESHOLD = 0.0001f;
+        Dictionary<int, Vector2> m_Velocities = new Dictionary<int, Vector2>();
+        Dictionary<int, Vector2> m_Forces = new Dictionary<int, Vector2>();
+        List<KeyValuePair<int, GraphNodeData>> m_NodeList = new List<KeyValuePair<int, GraphNodeData>>();
+        HashSet<(int, int)> m_ProcessedEdges = new HashSet<(int, int)>();
 
         public ReferenceGraphViewIMGUI(PackedMemorySnapshot snapshot, Action<AbstractThreadJob> jobRunner)
         {
@@ -37,6 +50,16 @@ namespace HeapExplorer
         public void Clear()
         {
             m_Nodes.Clear();
+            m_Velocities.Clear();
+            m_Forces.Clear();
+            m_NodeList.Clear();
+            m_ProcessedEdges.Clear();
+        }
+        
+        public bool AutoArrange
+        {
+            get { return m_AutoArrange; }
+            set { m_AutoArrange = value; }
         }
 
         public void ShowObject(ObjectProxy obj, Vector2 position)
@@ -95,6 +118,12 @@ namespace HeapExplorer
             Matrix4x4 originalMatrix = GUI.matrix;
             Vector2 pivot = graphArea.size * 0.5f;
             GUIUtility.ScaleAroundPivot(Vector2.one * m_Zoom, pivot);
+            
+            // Apply auto-arrange force-directed layout
+            if (m_AutoArrange)
+            {
+                ApplyForceDirectedLayout();
+            }
             
             // Handle events
             HandleEvents(graphArea);
@@ -216,6 +245,7 @@ namespace HeapExplorer
                         // Start dragging the node
                         m_DraggingNode = node;
                         m_DragOffset = mouseInGraphSpace - node.Position;
+                        
                         e.Use();
                         break;
                     }
@@ -375,8 +405,143 @@ namespace HeapExplorer
             style.normal.textColor = Color.white;
             style.fontSize = 10;
             
-            Rect instructionRect = new Rect(rect.x + 5, rect.y + 5, 350, 75);
-            GUI.Label(instructionRect, "Click [+]: Expand one level\nClick [R]: Expand to root\nDrag: Move node\nMiddle-click drag: Pan view\nScroll: Zoom", style);
+            string instructions = m_AutoArrange 
+                ? "Auto-arrange enabled\nClick [+]: Expand one level\nClick [R]: Expand to root\nDrag: Move node (disables auto-arrange)\nMiddle-click drag: Pan view\nScroll: Zoom"
+                : "Click [+]: Expand one level\nClick [R]: Expand to root\nDrag: Move node\nMiddle-click drag: Pan view\nScroll: Zoom";
+            
+            // Calculate instruction rect based on content
+            Vector2 instructionSize = style.CalcSize(new GUIContent(instructions));
+            Rect instructionRect = new Rect(rect.x + 5, rect.y + 5, Mathf.Max(350, instructionSize.x + 10), Mathf.Max(90, instructionSize.y + 10));
+            GUI.Label(instructionRect, instructions, style);
+        }
+        
+        void ApplyForceDirectedLayout()
+        {
+            if (m_Nodes.Count <= 1)
+                return;
+
+            // Initialize forces and velocities
+            // Note: This algorithm has O(n²) complexity for repulsion calculations.
+            // For typical HeapExplorer usage with small graphs (10-50 nodes), this is acceptable.
+            // For large graphs (>100 nodes), consider spatial partitioning optimizations.
+            m_Forces.Clear();
+            
+            foreach (var nodeEntry in m_Nodes)
+            {
+                var nodeId = nodeEntry.Key;
+                m_Forces[nodeId] = Vector2.zero;
+                
+                if (!m_Velocities.ContainsKey(nodeId))
+                {
+                    m_Velocities[nodeId] = Vector2.zero;
+                }
+            }
+            
+            // Calculate repulsion forces between all pairs of nodes
+            m_NodeList.Clear();
+            m_NodeList.AddRange(m_Nodes);
+            
+            for (int i = 0; i < m_NodeList.Count; i++)
+            {
+                var node1 = m_NodeList[i].Value;
+                for (int j = i + 1; j < m_NodeList.Count; j++)
+                {
+                    var node2 = m_NodeList[j].Value;
+                    
+                    Vector2 delta = node1.Position - node2.Position;
+                    float distanceSq = delta.sqrMagnitude;
+                    
+                    Vector2 direction;
+                    
+                    // Handle very close or overlapping nodes
+                    if (distanceSq < ZERO_DISTANCE_THRESHOLD)
+                    {
+                        // Nodes are essentially at the same position, use a deterministic fallback direction
+                        // based on node IDs to ensure consistent behavior
+                        int hash = Mathf.Abs(m_NodeList[i].Key ^ m_NodeList[j].Key);
+                        float angle = (hash % 360) * Mathf.Deg2Rad;
+                        direction = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
+                    }
+                    else
+                    {
+                        // Normal case - nodes are far enough apart
+                        direction = delta.normalized;
+                    }
+
+                    var repulsionStrength = REPULSION_STRENGTH;
+                    repulsionStrength = node1.radius * 2 * node2.radius * 2;
+                    
+                    // Coulomb's law for repulsion - apply equal and opposite forces
+                    Vector2 repulsionForce = direction * (repulsionStrength / Math.Max(NODES_OFFSET * NODES_OFFSET, distanceSq));
+                    
+                    m_Forces[m_NodeList[i].Key] += repulsionForce;
+                    m_Forces[m_NodeList[j].Key] -= repulsionForce;
+                }
+            }
+            
+            // Calculate attraction forces along edges (bidirectional)
+            m_ProcessedEdges.Clear();
+            
+            foreach (var nodeEntry in m_Nodes)
+            {
+                var node = nodeEntry.Value;
+                var nodeId = nodeEntry.Key;
+                
+                foreach (var childId in node.childNodes)
+                {
+                    // Skip if we've already processed this edge in the opposite direction
+                    if (m_ProcessedEdges.Contains((childId, nodeId)))
+                        continue;
+                    
+                    m_ProcessedEdges.Add((nodeId, childId));
+                    
+                    if (m_Nodes.TryGetValue(childId, out GraphNodeData child))
+                    {
+                        Vector2 delta = child.Position - node.Position;
+                        float distanceSq = delta.sqrMagnitude;
+                        
+                        var minDistance = MinDistanceBetweenNodes(node, child);
+                        
+                        // Skip attraction force when nodes are too close to avoid division by zero
+                        // and because repulsion forces will dominate anyway at close range
+                        distanceSq = Math.Max(distanceSq - minDistance * minDistance, 0);
+                        if (distanceSq < ZERO_DISTANCE_THRESHOLD)
+                        {
+                            continue;
+                        }
+                        
+                        // Calculate distance and direction efficiently
+                        float distance = Mathf.Sqrt(distanceSq);
+                        Vector2 direction = delta / distance;
+                        
+                        // Hooke's law for spring attraction - apply equal and opposite forces
+                        Vector2 attractionForce = direction * (distance * ATTRACTION_STRENGTH);
+                        m_Forces[nodeId] += attractionForce;
+                        m_Forces[childId] -= attractionForce;
+                    }
+                }
+            }
+            
+            // Update velocities and positions
+            foreach (var nodeEntry in m_Nodes)
+            {
+                var node = nodeEntry.Value;
+                var nodeId = nodeEntry.Key;
+                
+                if (nodeId == m_DraggingNode?.GetHashCode())
+                    continue; // Skip updating position of dragged node
+                
+                // Update velocity with damping
+                m_Velocities[nodeId] = (m_Velocities[nodeId] + m_Forces[nodeId] * FORCE_SCALE) * DAMPING;
+                
+                // Apply velocity to position
+                node.Position += m_Velocities[nodeId];
+            }
+        }
+        
+        float MinDistanceBetweenNodes(GraphNodeData nodeA, GraphNodeData nodeB)
+        {
+            return nodeA.radius + nodeB.radius + NODES_OFFSET * (1 + Math.Max(0, nodeA.childNodes.Count + nodeB.childNodes.Count - 4) * 0.5f);
         }
         
         void DrawHoverInspector(GraphNodeData node)

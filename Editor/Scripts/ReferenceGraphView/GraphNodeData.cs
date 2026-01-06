@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -6,6 +7,7 @@ namespace HeapExplorer
     public class GraphNodeData : IEqualityComparer<GraphNodeData>
     {
         const int Radius = 45;
+        const int extraRadiusPerChild = 5;
         
         public readonly string title;
         public readonly string subtitle;
@@ -33,7 +35,7 @@ namespace HeapExplorer
         }
 
         public Rect rect;
-        public float radius;
+        public float radius => Radius + Math.Max(0, childNodes.Count - 1) * extraRadiusPerChild;
         public bool isExpanded;
 
         public GraphNodeData(Vector2 position, ObjectProxy objectProxy)
@@ -44,7 +46,6 @@ namespace HeapExplorer
             isRoot = RootPathUtility.IsRoot(objectProxy, out rootReason);
             isEmptyShellObject = IsEmptyShellObject();
             
-            radius = Radius;
             rect = new Rect(position - new Vector2(radius, radius), new Vector2(radius * 2, radius * 2));
             isExpanded = false;
 
