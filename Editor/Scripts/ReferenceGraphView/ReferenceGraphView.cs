@@ -83,7 +83,7 @@ namespace HeapExplorer
 
                 var randomOffset = Random.insideUnitCircle * parent.childNodes.Count;
                 var direction = (parent.Position - grandParent.Position + randomOffset).normalized;
-                position = parent.Position + direction * (parent.radius + GraphNodeData.Radius + NODE_VERTICAL_SPACING);
+                position = parent.Position + direction * (parent.radius + GraphNodeData.Radius + NODES_OFFSET);
             }
             else {
                 position = new Vector2(
